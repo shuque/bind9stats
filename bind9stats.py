@@ -123,7 +123,7 @@ GraphConfig = (
 
 def getstatsversion(etree):
     """return version of BIND statistics"""
-    return tree.findall("%s[1]" % Path_base)[0].attrib['version']
+    return tree.find(Path_base).attrib['version']
 
 
 def getkeyvals(path, location, getvals=False):
