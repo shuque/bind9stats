@@ -8,7 +8,7 @@ th statistics.
 
 Author: Shumon Huque <shuque - @ - upenn.edu>
 
-Copyright (c) 2005 - 2011, Shumon Huque. All rights reserved.  
+Copyright (c) 2013, Shumon Huque. All rights reserved.  
 This program is free software; you can redistribute it and/or modify 
 it under the same terms as Python itself.
 """
