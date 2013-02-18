@@ -1,3 +1,37 @@
 bind9stats.py
 
-A munin plugin to obtain data from a BIND9 statistics server.
+A munin plugin to obtain data from a BIND9 statistics server, written
+in Python. Tested with BIND 9.9's statistics server.
+
+Software needed to use this:
+BIND: BIND DNS server from isc.org. https://www.isc.org/software/bind
+Munin: a resource monitoring tool that does pretty graphs.
+       See http://munin-monitoring.org/ for details.)
+
+This is roughly based on the perl plugin by George Kargiotakis,
+described here:
+http://www.void.gr/kargig/blog/2012/08/30/bind9-statistics-channels-munin-plugin/
+
+Some differences:
+* Adds the DNS Opcodes statistics.
+* Adds Zone maintenance statistics.
+* Displays the view-specific statistics properly (currently only the
+  _default view is queried). The perl plugin wasn't obtaining the view 
+  specific stats properly, at least on my BIND 9.9 servers, apparently 
+  because of some XML schema changes.
+* Doesn't include graphs for memory and tasks. I might add those later.
+
+Instructions for using this:
+- Have a DNS server running BIND9, with the statistics server enabled.
+- Have a munin-node running on it, install bind9stats.py in its plugins
+  directory and restart the node.
+  You can also run the plugin on another machine, if the statistics
+  server allows queries remotely. Set the HOST and PORT environment
+  variables appropriately in that case before invoking bind9stats.py.
+
+
+Author: Shumon Huque, University of Pennsylvania.
+
+Copyright (c) 2013 - Shumon Huque. All rights reserved.  
+This program is free software; you can redistribute it and/or modify 
+it under the same terms as Python itself.
