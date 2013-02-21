@@ -19,7 +19,6 @@ Some differences:
   _default view is queried). The perl plugin wasn't obtaining the view 
   specific stats properly, at least on my BIND 9.9 servers, apparently 
   because of some XML schema changes.
-* Doesn't include graphs for memory and tasks. I might add those later.
 
 Instructions for using this:
 - Have a DNS server running BIND9, with the statistics server enabled.

@@ -31,6 +31,7 @@ GraphConfig = (
     ('dns_queries_in',
      dict(title='DNS Queries In',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Queries/sec',
           location='server/queries-in/rdtype',
@@ -39,6 +40,7 @@ GraphConfig = (
     ('dns_server_stats',
      dict(title='DNS Server Stats',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Queries/sec',
           location='server/nsstat',
@@ -52,6 +54,7 @@ GraphConfig = (
     ('dns_opcode_in',
      dict(title='DNS Opcodes In',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Queries/sec',
           location='server/requests/opcode',
@@ -60,6 +63,7 @@ GraphConfig = (
     ('dns_queries_out',
      dict(title='DNS Queries Out',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           view='_default',
@@ -69,6 +73,7 @@ GraphConfig = (
     ('dns_cachedb',
      dict(title='DNS CacheDB RRsets',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           view='_default',
@@ -78,6 +83,7 @@ GraphConfig = (
     ('dns_resolver_stats',
      dict(title='DNS Resolver Stats',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           view='_default',
@@ -87,6 +93,7 @@ GraphConfig = (
     ('dns_socket_stats',
      dict(title='DNS Socket Stats',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           location='server/sockstat',
@@ -113,10 +120,20 @@ GraphConfig = (
     ('dns_zone_stats',
      dict(title='DNS Zone Maintenance',
           enable=True,
+          stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           location='server/zonestat',
           config=dict(type='DERIVE', min=0))),
+
+    ('dns_memory_usage',
+     dict(title='DNS Memory Usage',
+          enable=True,
+          stattype='memory',
+          args='-l 0 --base 1024',
+          vlabel='Memory In-Use',
+          location='memory/summary',
+          config=dict(type='GAUGE', min=0))),
 
 )
 
@@ -126,28 +143,46 @@ def getstatsversion(etree):
     return tree.find(Path_base).attrib['version']
 
 
-def getkeyvals(path, location, getvals=False):
+def getkeyvals(path, location, stattype, getvals=False):
+
     result = []
-    for stat in path.findall(location):
-        key = stat.findtext('name')
+
+    if stattype == 'memory':
+        statlist = path.find(location)
+    else:
+        statlist = path.findall(location)
+
+    for stat in statlist:
+        if stattype == 'memory':
+            key = stat.tag
+        else:
+            key = stat.findtext('name')
         if getvals:
-            value = stat.findtext('counter')
+            if stattype == 'memory':
+                value = stat.text
+            else:
+                value = stat.findtext('counter')
             result.append((key,value))
         else:
             result.append(key)
+
     return result
 
 
 def getdata(graph, etree, getvals=False):
+
+    stattype = graph[1]['stattype']
+    location = graph[1]['location']
     view = graph[1].get('view', None)
+
     if view:
         xmlpath = Path_views
         for stat in etree.findall(xmlpath):
             if stat.findtext('name') == view:
-                return getkeyvals(stat, graph[1]['location'], getvals)
+                return getkeyvals(stat, location, stattype, getvals)
     else:
-        xmlpath = "%s/%s" % (Path_base, graph[1]['location'])
-        return getkeyvals(etree, xmlpath, getvals)
+        xmlpath = "%s/%s" % (Path_base, location)
+        return getkeyvals(etree, xmlpath, stattype, getvals)
 
 
 def validkey(graph, key):
