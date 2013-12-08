@@ -214,13 +214,14 @@ def muninconfig(etree):
         print "graph_category %s" % GraphCategoryName
 
         data = getdata(g, etree, getvals=False)
-        for key in data:
-            if validkey(g, key):
-                print "%s.label %s" % (key, key)
-                if g[1]['config'].has_key('draw'):
-                    print "%s.draw %s" % (key, g[1]['config']['draw'])
-                print "%s.min %s" % (key, g[1]['config']['min'])
-                print "%s.type %s" % (key, g[1]['config']['type'])
+        if data != None:
+            for key in data:
+                if validkey(g, key):
+                    print "%s.label %s" % (key, key)
+                    if g[1]['config'].has_key('draw'):
+                        print "%s.draw %s" % (key, g[1]['config']['draw'])
+                    print "%s.min %s" % (key, g[1]['config']['min'])
+                    print "%s.type %s" % (key, g[1]['config']['type'])
         print
 
 
@@ -232,9 +233,10 @@ def munindata(etree):
             continue
         print "multigraph %s" % g[0]
         data = getdata(g, etree, getvals=True)
-        for (key, value) in data:
-            if validkey(g, key):
-                print "%s.value %s" % (key, value)
+        if data != None:
+            for (key, value) in data:
+                if validkey(g, key):
+                    print "%s.value %s" % (key, value)
         print
 
 
