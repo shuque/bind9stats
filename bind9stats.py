@@ -1,19 +1,13 @@
 #!/usr/bin/env python
 
 """
-Note: this version of the plug-in only works with version 2 of
-BIND9's XML statistics. A newer version will be available soon that
-supports the version 3 statistics supported in the latest versions 
-of BIND9.
-
 Munin plug-in for BIND9 DNS statistics server, written in Python.
-Based on the perl plug-in by George Kargiotakis <kargig[at]void[dot]gr>
-Tested with a BIND 9.9 statistics server exporting version 2.2 of
-th statistics.
+Tested with a BIND 9.10 statistics server exporting version 3.x of
+the XML statistics.
 
 Author: Shumon Huque <shuque - @ - gmail.com>
 
-Copyright (c) 2013, 2014, Shumon Huque. All rights reserved.  
+Copyright (c) 2013-2015, Shumon Huque. All rights reserved.  
 This program is free software; you can redistribute it and/or modify 
 it under the same terms as Python itself.
 """
@@ -22,26 +16,33 @@ import os, sys, time
 import xml.etree.ElementTree as et
 import urllib2, httplib
 
-VERSION = "0.12"
+VERSION = "0.20"
 
 HOST = os.environ.get('HOST', "127.0.0.1")
 PORT = os.environ.get('PORT', "8053")
-BINDSTATS_URL = "http://%s:%s" % (HOST, PORT)
-
-Path_base = "bind/statistics"
-Path_views = "bind/statistics/views/view"
+STATS_TYPE = "xml"                           # will support json later
+BINDSTATS_URL = "http://%s:%s/%s" % (HOST, PORT, STATS_TYPE)
 
 GraphCategoryName = "bind_dns"
 
 GraphConfig = (
 
-    ('dns_queries_in',
-     dict(title='DNS Queries In',
+    ('dns_opcode_in',
+     dict(title='DNS Opcodes In',
           enable=True,
           stattype='counter',
           args='-l 0',
           vlabel='Queries/sec',
-          location='server/queries-in/rdtype',
+          location="server/counters[@type='opcode']/counter",
+          config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
+
+    ('dns_qtypes_in',
+     dict(title='DNS Query Types In',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Queries/sec',
+          location="server/counters[@type='qtype']/counter",
           config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
 
     ('dns_server_stats',
@@ -50,7 +51,7 @@ GraphConfig = (
           stattype='counter',
           args='-l 0',
           vlabel='Queries/sec',
-          location='server/nsstat',
+          location="server/counters[@type='nsstat']/counter",
           fields=("Requestv4", "Requestv6", "ReqEdns0", "ReqTCP", "Response",
                   "TruncatedResp", "RespEDNS0", "QrySuccess", "QryAuthAns",
                   "QryNoauthAns", "QryReferral", "QryNxrrset", "QrySERVFAIL",
@@ -58,33 +59,22 @@ GraphConfig = (
                   "QryDropped", "QryFailure"),
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_opcode_in',
-     dict(title='DNS Opcodes In',
-          enable=True,
-          stattype='counter',
-          args='-l 0',
-          vlabel='Queries/sec',
-          location='server/requests/opcode',
-          config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
-
     ('dns_queries_out',
      dict(title='DNS Queries Out',
-          enable=True,
+          enable=False,
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
-          view='_default',
           location='rdtype',
           config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
 
     ('dns_cachedb',
      dict(title='DNS CacheDB RRsets',
           enable=True,
-          stattype='counter',
+          stattype='cachedb',
           args='-l 0',
           vlabel='Count/sec',
-          view='_default',
-          location='cache/rrset',
+          location="views/view[@name='_default']/cache[@name='_default']/rrset",
           config=dict(type='DERIVE', min=0))),
 
     ('dns_resolver_stats',
@@ -93,8 +83,43 @@ GraphConfig = (
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
-          view='_default',
-          location='resstat',
+          location="server/counters[@type='resstat']/counter",
+          config=dict(type='DERIVE', min=0))),
+
+    ('dns_resolver_stats_qtype',
+     dict(title='DNS Resolver Stats (Qtype)',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Count/sec',
+          location="views/view[@name='_default']/counters[@type='resqtype']/counter",
+          config=dict(type='DERIVE', min=0))),
+
+    ('dns_resolver_stats_view',
+     dict(title='DNS Resolver Stats (default view)',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Count/sec',
+          location="views/view[@name='_default']/counters[@type='resstats']/counter",
+          config=dict(type='DERIVE', min=0))),
+
+    ('dns_adbstat',
+     dict(title='DNS adbstat',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Count/sec',
+          location="views/view[@name='_default']/counters[@type='adbstat']/counter",
+          config=dict(type='DERIVE', min=0))),
+
+    ('dns_cachestats',
+     dict(title='DNS Resolver Cache Stats',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Count/sec',
+          location="views/view[@name='_default']/counters[@type='cachestats']/counter",
           config=dict(type='DERIVE', min=0))),
 
     ('dns_socket_stats',
@@ -103,7 +128,7 @@ GraphConfig = (
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
-          location='server/sockstat',
+          location="server/counters[@type='sockstat']/counter",
           fields=("UDP4Open", "UDP6Open", 
                   "TCP4Open", "TCP6Open", 
                   "UDP4OpenFail", "UDP6OpenFail", 
@@ -130,7 +155,7 @@ GraphConfig = (
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
-          location='server/zonestat',
+          location="server/counters[@type='zonestat']/counter",
           config=dict(type='DERIVE', min=0))),
 
     ('dns_memory_usage',
@@ -147,52 +172,73 @@ GraphConfig = (
 
 def getstatsversion(etree):
     """return version of BIND statistics"""
-    return tree.find(Path_base).attrib['version']
-
-
-def getkeyvals(path, location, stattype, getvals=False):
-
-    result = []
-
-    if stattype == 'memory':
-        statlist = path.find(location)
-    else:
-        statlist = path.findall(location)
-
-    if not statlist:     # Empty
-        return result
-
-    for stat in statlist:
-        if stattype == 'memory':
-            key = stat.tag
-        else:
-            key = stat.findtext('name')
-        if getvals:
-            if stattype == 'memory':
-                value = stat.text
-            else:
-                value = stat.findtext('counter')
-            result.append((key,value))
-        else:
-            result.append(key)
-
-    return result
+    return tree.attrib['version']
 
 
 def getdata(graph, etree, getvals=False):
 
     stattype = graph[1]['stattype']
     location = graph[1]['location']
-    view = graph[1].get('view', None)
 
-    if view:
-        xmlpath = Path_views
-        for stat in etree.findall(xmlpath):
-            if stat.findtext('name') == view:
-                return getkeyvals(stat, location, stattype, getvals)
-    else:
-        xmlpath = "%s/%s" % (Path_base, location)
-        return getkeyvals(etree, xmlpath, stattype, getvals)
+    if stattype == 'memory':
+        return getdata_memory(graph, etree, getvals)
+    elif stattype == 'cachedb':
+        return getdata_cachedb(graph, etree, getvals)
+
+    results = []
+    counters = etree.findall(location)
+
+    if counters is None:                     # empty result
+        return results
+
+    for c in counters:
+        key = c.attrib['name']
+        val = c.text
+        if getvals:
+            results.append((key, val))
+        else:
+            results.append(key)
+    return results
+
+
+def getdata_memory(graph, etree, getvals=False):
+
+    location = graph[1]['location']
+
+    results = []
+    counters = etree.find(location)
+
+    if counters is None:                     # empty result
+        return results
+
+    for c in counters:
+        key = c.tag
+        val = c.text
+        if getvals:
+            results.append((key, val))
+        else:
+            results.append(key)
+    return results
+
+
+def getdata_cachedb(graph, etree, getvals=False):
+
+    location = graph[1]['location']
+
+    results = []
+    counters = etree.findall(location)
+
+    if counters is None:                     # empty result
+        return results
+
+    for c in counters:
+        key = c.find('name').text
+        val = c.find('counter').text
+        if getvals:
+            results.append((key, val))
+        else:
+            results.append(key)
+    return results
 
 
 def validkey(graph, key):
@@ -254,8 +300,12 @@ if __name__ == '__main__':
 
     tree = get_etree_root(BINDSTATS_URL)
 
-    if len(sys.argv) == 2 and sys.argv[1] == "config":
-        muninconfig(tree)
+    args = sys.argv[1:]
+    if len(args):
+        if args[0] == "config":
+            muninconfig(tree)
+        elif args[0] == "statsversion":
+            print getstatsversion(tree)
     else:
         munindata(tree)
 
