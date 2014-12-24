@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 
 """
+Note: this version of the plug-in only works with version 2 of
+BIND9's XML statistics. A newer version will be available soon that
+supports the version 3 statistics supported in the latest versions 
+of BIND9.
+
 Munin plug-in for BIND9 DNS statistics server, written in Python.
 Based on the perl plug-in by George Kargiotakis <kargig[at]void[dot]gr>
 Tested with a BIND 9.9 statistics server exporting version 2.2 of
 th statistics.
 
-Author: Shumon Huque <shuque - @ - upenn.edu>
+Author: Shumon Huque <shuque - @ - gmail.com>
 
-Copyright (c) 2013, Shumon Huque. All rights reserved.  
+Copyright (c) 2013, 2014, Shumon Huque. All rights reserved.  
 This program is free software; you can redistribute it and/or modify 
 it under the same terms as Python itself.
 """
