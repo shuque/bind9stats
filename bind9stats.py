@@ -22,6 +22,8 @@ import os, sys, time
 import xml.etree.ElementTree as et
 import urllib2, httplib
 
+VERSION = "0.12"
+
 HOST = os.environ.get('HOST', "127.0.0.1")
 PORT = os.environ.get('PORT', "8053")
 BINDSTATS_URL = "http://%s:%s" % (HOST, PORT)
