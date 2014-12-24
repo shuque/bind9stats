@@ -159,6 +159,9 @@ def getkeyvals(path, location, stattype, getvals=False):
     else:
         statlist = path.findall(location)
 
+    if not statlist:     # Empty
+        return result
+
     for stat in statlist:
         if stattype == 'memory':
             key = stat.tag
