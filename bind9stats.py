@@ -7,14 +7,17 @@ the XML statistics.
 
 Author: Shumon Huque <shuque - @ - gmail.com>
 
-Copyright (c) 2013-2015, Shumon Huque. All rights reserved.  
-This program is free software; you can redistribute it and/or modify 
+Copyright (c) 2013-2015, Shumon Huque. All rights reserved.
+This program is free software; you can redistribute it and/or modify
 it under the same terms as Python itself.
 """
 
-import os, sys, time
+import os, sys
 import xml.etree.ElementTree as et
-import urllib2, httplib
+try:
+    from urllib2 import urlopen                  # for Python 2
+except ImportError:
+    from urllib.request import urlopen           # for Python 3
 
 VERSION = "0.20"
 
@@ -129,23 +132,23 @@ GraphConfig = (
           args='-l 0',
           vlabel='Count/sec',
           location="server/counters[@type='sockstat']/counter",
-          fields=("UDP4Open", "UDP6Open", 
-                  "TCP4Open", "TCP6Open", 
-                  "UDP4OpenFail", "UDP6OpenFail", 
-                  "TCP4OpenFail", "TCP6OpenFail", 
-                  "UDP4Close", "UDP6Close", 
-                  "TCP4Close", "TCP6Close", 
-                  "UDP4BindFail", "UDP6BindFail", 
-                  "TCP4BindFail", "TCP6BindFail", 
-                  "UDP4ConnFail", "UDP6ConnFail", 
-                  "TCP4ConnFail", "TCP6ConnFail", 
-                  "UDP4Conn", "UDP6Conn", 
-                  "TCP4Conn", "TCP6Conn", 
-                  "TCP4AcceptFail", "TCP6AcceptFail", 
-                  "TCP4Accept", "TCP6Accept", 
-                  "UDP4SendErr", "UDP6SendErr", 
-                  "TCP4SendErr", "TCP6SendErr", 
-                  "UDP4RecvErr", "UDP6RecvErr", 
+          fields=("UDP4Open", "UDP6Open",
+                  "TCP4Open", "TCP6Open",
+                  "UDP4OpenFail", "UDP6OpenFail",
+                  "TCP4OpenFail", "TCP6OpenFail",
+                  "UDP4Close", "UDP6Close",
+                  "TCP4Close", "TCP6Close",
+                  "UDP4BindFail", "UDP6BindFail",
+                  "TCP4BindFail", "TCP6BindFail",
+                  "UDP4ConnFail", "UDP6ConnFail",
+                  "TCP4ConnFail", "TCP6ConnFail",
+                  "UDP4Conn", "UDP6Conn",
+                  "TCP4Conn", "TCP6Conn",
+                  "TCP4AcceptFail", "TCP6AcceptFail",
+                  "TCP4Accept", "TCP6Accept",
+                  "UDP4SendErr", "UDP6SendErr",
+                  "TCP4SendErr", "TCP6SendErr",
+                  "UDP4RecvErr", "UDP6RecvErr",
                   "TCP4RecvErr", "TCP6RecvErr"),
           config=dict(type='DERIVE', min=0))),
 
@@ -172,7 +175,7 @@ GraphConfig = (
 
 def getstatsversion(etree):
     """return version of BIND statistics"""
-    return tree.attrib['version']
+    return etree.attrib['version']
 
 
 def getdata(graph, etree, getvals=False):
@@ -253,7 +256,7 @@ def get_etree_root(url):
     """Return the root of an ElementTree structure populated by
     parsing BIND9 statistics obtained at the given URL"""
 
-    data = urllib2.urlopen(url)
+    data = urlopen(url)
     return et.parse(data).getroot()
 
 
@@ -263,22 +266,22 @@ def muninconfig(etree):
     for g in GraphConfig:
         if not g[1]['enable']:
             continue
-        print "multigraph %s" % g[0]
-        print "graph_title %s" % g[1]['title']
-        print "graph_args %s" % g[1]['args']
-        print "graph_vlabel %s" % g[1]['vlabel']
-        print "graph_category %s" % GraphCategoryName
+        print("multigraph %s" % g[0])
+        print("graph_title %s" % g[1]['title'])
+        print("graph_args %s" % g[1]['args'])
+        print("graph_vlabel %s" % g[1]['vlabel'])
+        print("graph_category %s" % GraphCategoryName)
 
         data = getdata(g, etree, getvals=False)
         if data != None:
             for key in data:
                 if validkey(g, key):
-                    print "%s.label %s" % (key, key)
-                    if g[1]['config'].has_key('draw'):
-                        print "%s.draw %s" % (key, g[1]['config']['draw'])
-                    print "%s.min %s" % (key, g[1]['config']['min'])
-                    print "%s.type %s" % (key, g[1]['config']['type'])
-        print
+                    print("%s.label %s" % (key, key))
+                    if 'draw' in g[1]['config']:
+                        print("%s.draw %s" % (key, g[1]['config']['draw']))
+                    print("%s.min %s" % (key, g[1]['config']['min']))
+                    print("%s.type %s" % (key, g[1]['config']['type']))
+        print('')
 
 
 def munindata(etree):
@@ -287,13 +290,13 @@ def munindata(etree):
     for g in GraphConfig:
         if not g[1]['enable']:
             continue
-        print "multigraph %s" % g[0]
+        print("multigraph %s" % g[0])
         data = getdata(g, etree, getvals=True)
         if data != None:
             for (key, value) in data:
                 if validkey(g, key):
-                    print "%s.value %s" % (key, value)
-        print
+                    print("%s.value %s" % (key, value))
+        print('')
 
 
 if __name__ == '__main__':
@@ -305,8 +308,7 @@ if __name__ == '__main__':
         if args[0] == "config":
             muninconfig(tree)
         elif args[0] == "statsversion":
-            print getstatsversion(tree)
+            print("bind9stats %s version %s" % \
+                  (STATS_TYPE, getstatsversion(tree)))
     else:
         munindata(tree)
-
-    sys.exit(0)
