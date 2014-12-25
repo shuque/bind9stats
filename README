@@ -1,5 +1,5 @@
 bind9stats.py
-version 0.20
+version 0.21
 
 A munin plugin to obtain data from a BIND9 statistics server, written
 in Python. Tested with BIND 9.10's statistics server exporting version
