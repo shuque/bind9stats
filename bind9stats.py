@@ -62,15 +62,6 @@ GraphConfig = (
                   "QryDropped", "QryFailure"),
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_queries_out',
-     dict(title='DNS Queries Out',
-          enable=False,
-          stattype='counter',
-          args='-l 0',
-          vlabel='Count/sec',
-          location='rdtype',
-          config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
-
     ('dns_cachedb',
      dict(title='DNS CacheDB RRsets',
           enable=True,
@@ -82,7 +73,7 @@ GraphConfig = (
 
     ('dns_resolver_stats',
      dict(title='DNS Resolver Stats',
-          enable=True,
+          enable=False,                         # appears to be empty
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
@@ -90,7 +81,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_resolver_stats_qtype',
-     dict(title='DNS Resolver Stats (Qtype)',
+     dict(title='DNS Resolver Outgoing Queries',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -99,7 +90,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_resolver_stats_view',
-     dict(title='DNS Resolver Stats (default view)',
+     dict(title='DNS Resolver Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -299,16 +290,28 @@ def munindata(etree):
         print('')
 
 
+def usage():
+    """Print plugin usage"""
+    print("""\
+\nUsage: bind9stats.py [config|statsversion]\n""")
+    sys.exit(1)
+
+
 if __name__ == '__main__':
 
     tree = get_etree_root(BINDSTATS_URL)
 
     args = sys.argv[1:]
-    if len(args):
+    argslen = len(args)
+
+    if argslen == 0:
+        munindata(tree)
+    elif argslen == 1:
         if args[0] == "config":
             muninconfig(tree)
         elif args[0] == "statsversion":
-            print("bind9stats %s version %s" % \
-                  (STATS_TYPE, getstatsversion(tree)))
+            print("bind9stats %s version %s" % (STATS_TYPE, getstatsversion(tree)))
+        else:
+            usage()
     else:
-        munindata(tree)
+        usage()
