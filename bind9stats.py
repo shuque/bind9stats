@@ -19,7 +19,7 @@ try:
 except ImportError:
     from urllib.request import urlopen           # for Python 3
 
-VERSION = "0.21"
+VERSION = "0.22"
 
 HOST = os.environ.get('HOST', "127.0.0.1")
 PORT = os.environ.get('PORT', "8053")
@@ -28,10 +28,12 @@ BINDSTATS_URL = "http://%s:%s/%s" % (HOST, PORT, STATS_TYPE)
 
 GraphCategoryName = "bind_dns"
 
+# Note: munin displays these graphs ordered alphabetically by graph title
+
 GraphConfig = (
 
     ('dns_opcode_in',
-     dict(title='DNS Opcodes In',
+     dict(title='BIND_DNS [01] Opcodes In',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -40,7 +42,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
 
     ('dns_qtypes_in',
-     dict(title='DNS Query Types In',
+     dict(title='BIND_DNS [02] Query Types In',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -49,7 +51,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
 
     ('dns_server_stats',
-     dict(title='DNS Server Stats',
+     dict(title='BIND_DNS [03] Server Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -63,7 +65,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_cachedb',
-     dict(title='DNS CacheDB RRsets',
+     dict(title='BIND_DNS [04] CacheDB RRsets',
           enable=True,
           stattype='cachedb',
           args='-l 0',
@@ -72,7 +74,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_resolver_stats',
-     dict(title='DNS Resolver Stats',
+     dict(title='BIND_DNS Resolver Stats',
           enable=False,                         # appears to be empty
           stattype='counter',
           args='-l 0',
@@ -81,7 +83,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_resolver_stats_qtype',
-     dict(title='DNS Resolver Outgoing Queries',
+     dict(title='BIND_DNS [05] Resolver Outgoing Queries',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -90,7 +92,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_resolver_stats_view',
-     dict(title='DNS Resolver Stats',
+     dict(title='BIND_DNS [06] Resolver Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -98,17 +100,8 @@ GraphConfig = (
           location="views/view[@name='_default']/counters[@type='resstats']/counter",
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_adbstat',
-     dict(title='DNS adbstat',
-          enable=True,
-          stattype='counter',
-          args='-l 0',
-          vlabel='Count/sec',
-          location="views/view[@name='_default']/counters[@type='adbstat']/counter",
-          config=dict(type='DERIVE', min=0))),
-
     ('dns_cachestats',
-     dict(title='DNS Resolver Cache Stats',
+     dict(title='BIND_DNS [07] Resolver Cache Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -117,7 +110,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_socket_stats',
-     dict(title='DNS Socket Stats',
+     dict(title='BIND_DNS [08] Socket Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -144,7 +137,7 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_zone_stats',
-     dict(title='DNS Zone Maintenance',
+     dict(title='BIND_DNS [09] Zone Maintenance',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -153,13 +146,22 @@ GraphConfig = (
           config=dict(type='DERIVE', min=0))),
 
     ('dns_memory_usage',
-     dict(title='DNS Memory Usage',
+     dict(title='BIND_DNS [10] Memory Usage',
           enable=True,
           stattype='memory',
           args='-l 0 --base 1024',
           vlabel='Memory In-Use',
           location='memory/summary',
           config=dict(type='GAUGE', min=0))),
+
+    ('dns_adbstat',
+     dict(title='BIND_DNS [11] adbstat',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Count/sec',
+          location="views/view[@name='_default']/counters[@type='adbstat']/counter",
+          config=dict(type='DERIVE', min=0))),
 
 )
 
