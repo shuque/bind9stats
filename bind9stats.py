@@ -166,6 +166,13 @@ GraphConfig = (
 )
 
 
+def unsetenvproxy():
+    """Unset HTTP Proxy environment variables that might interfere"""
+    for proxyvar in [ 'http_proxy', 'HTTP_PROXY' ]:
+        os.unsetenv(proxyvar)
+    return
+
+
 def getstatsversion(etree):
     """return version of BIND statistics"""
     return etree.attrib['version']
@@ -305,6 +312,7 @@ if __name__ == '__main__':
 
     args = sys.argv[1:]
     argslen = len(args)
+    unsetenvproxy()
 
     if argslen == 0:
         munindata(tree)
