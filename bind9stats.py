@@ -23,17 +23,23 @@ VERSION = "0.22"
 
 HOST = os.environ.get('HOST', "127.0.0.1")
 PORT = os.environ.get('PORT', "8053")
+INSTANCE = os.environ.get('INSTANCE', "")
+SUBTITLE = os.environ.get('SUBTITLE', "")
+
 STATS_TYPE = "xml"                           # will support json later
 BINDSTATS_URL = "http://%s:%s/%s" % (HOST, PORT, STATS_TYPE)
 
-GraphCategoryName = "bind_dns"
+if SUBTITLE != '':
+    SUBTITLE = ' ' + SUBTITLE
+
+GraphCategoryName = "dns_bind"
 
 # Note: munin displays these graphs ordered alphabetically by graph title
 
 GraphConfig = (
 
-    ('dns_opcode_in',
-     dict(title='BIND_DNS [01] Opcodes In',
+    ('dns_opcode_in' + INSTANCE,
+     dict(title='BIND [00] Opcodes In',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -41,8 +47,8 @@ GraphConfig = (
           location="server/counters[@type='opcode']/counter",
           config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
 
-    ('dns_qtypes_in',
-     dict(title='BIND_DNS [02] Query Types In',
+    ('dns_qtypes_in' + INSTANCE,
+     dict(title='BIND [01] Query Types In',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -50,8 +56,8 @@ GraphConfig = (
           location="server/counters[@type='qtype']/counter",
           config=dict(type='DERIVE', min=0, draw='AREASTACK'))),
 
-    ('dns_server_stats',
-     dict(title='BIND_DNS [03] Server Stats',
+    ('dns_server_stats' + INSTANCE,
+     dict(title='BIND [02] Server Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -64,17 +70,17 @@ GraphConfig = (
                   "QryDropped", "QryFailure"),
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_cachedb',
-     dict(title='BIND_DNS [04] CacheDB RRsets',
+    ('dns_cachedb' + INSTANCE,
+     dict(title='BIND [03] CacheDB RRsets',
           enable=True,
           stattype='cachedb',
           args='-l 0',
-          vlabel='Count/sec',
+          vlabel='Count',
           location="views/view[@name='_default']/cache[@name='_default']/rrset",
-          config=dict(type='DERIVE', min=0))),
+          config=dict(type='GAUGE', min=0))),
 
-    ('dns_resolver_stats',
-     dict(title='BIND_DNS Resolver Stats',
+    ('dns_resolver_stats' + INSTANCE,
+     dict(title='BIND [04] Resolver Stats',
           enable=False,                         # appears to be empty
           stattype='counter',
           args='-l 0',
@@ -82,8 +88,8 @@ GraphConfig = (
           location="server/counters[@type='resstat']/counter",
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_resolver_stats_qtype',
-     dict(title='BIND_DNS [05] Resolver Outgoing Queries',
+    ('dns_resolver_stats_qtype' + INSTANCE,
+     dict(title='BIND [05] Resolver Outgoing Queries',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -91,8 +97,8 @@ GraphConfig = (
           location="views/view[@name='_default']/counters[@type='resqtype']/counter",
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_resolver_stats_view',
-     dict(title='BIND_DNS [06] Resolver Stats',
+    ('dns_resolver_stats_view' + INSTANCE,
+     dict(title='BIND [06] Resolver Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -100,17 +106,41 @@ GraphConfig = (
           location="views/view[@name='_default']/counters[@type='resstats']/counter",
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_cachestats',
-     dict(title='BIND_DNS [07] Resolver Cache Stats',
+    ('dns_cachestats' + INSTANCE,
+     dict(title='BIND [07] Resolver Cache Stats',
           enable=True,
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           location="views/view[@name='_default']/counters[@type='cachestats']/counter",
+          fields=("CacheHits", "CacheMisses", "QueryHits", "QueryMisses",
+                  "DeleteLRU", "DeleteTTL"),
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_socket_stats',
-     dict(title='BIND_DNS [08] Socket Stats',
+    ('dns_cache_mem' + INSTANCE,
+     dict(title='BIND [08] Resolver Cache Memory Stats',
+          enable=True,
+          stattype='counter',
+          args='-l 0 --base 1024',
+          vlabel='Memory In-Use',
+          location="views/view[@name='_default']/counters[@type='cachestats']/counter",
+          fields=("TreeMemInUse", "HeapMemInUse"),
+          config=dict(type='GAUGE', min=0))),
+
+    ('dns_socket_activity' + INSTANCE,
+     dict(title='BIND [09] Socket Activity',
+          enable=True,
+          stattype='counter',
+          args='-l 0',
+          vlabel='Active',
+          location="server/counters[@type='sockstat']/counter",
+          fields=("UDP4Active", "UDP6Active",
+                  "TCP4Active", "TCP6Active",
+                  "UnixActive", "RawActive"),
+          config=dict(type='GAUGE', min=0))),
+
+    ('dns_socket_stats' + INSTANCE,
+     dict(title='BIND [10] Socket Rates',
           enable=True,
           stattype='counter',
           args='-l 0',
@@ -136,32 +166,33 @@ GraphConfig = (
                   "TCP4RecvErr", "TCP6RecvErr"),
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_zone_stats',
-     dict(title='BIND_DNS [09] Zone Maintenance',
-          enable=True,
+    ('dns_zone_stats' + INSTANCE,
+     dict(title='BIND [11] Zone Maintenance',
+          enable=False,
           stattype='counter',
           args='-l 0',
           vlabel='Count/sec',
           location="server/counters[@type='zonestat']/counter",
           config=dict(type='DERIVE', min=0))),
 
-    ('dns_memory_usage',
-     dict(title='BIND_DNS [10] Memory Usage',
+    ('dns_memory_usage' + INSTANCE,
+     dict(title='BIND [12] Memory Usage',
           enable=True,
           stattype='memory',
           args='-l 0 --base 1024',
           vlabel='Memory In-Use',
           location='memory/summary',
+          fields=("ContextSize", "BlockSize", "Lost", "InUse"),
           config=dict(type='GAUGE', min=0))),
 
-    ('dns_adbstat',
-     dict(title='BIND_DNS [11] adbstat',
+    ('dns_adbstat' + INSTANCE,
+     dict(title='BIND [13] adbstat',
           enable=True,
           stattype='counter',
           args='-l 0',
-          vlabel='Count/sec',
+          vlabel='Count',
           location="views/view[@name='_default']/counters[@type='adbstat']/counter",
-          config=dict(type='DERIVE', min=0))),
+          config=dict(type='GAUGE', min=0))),
 
 )
 
@@ -267,7 +298,7 @@ def muninconfig(etree):
         if not g[1]['enable']:
             continue
         print("multigraph %s" % g[0])
-        print("graph_title %s" % g[1]['title'])
+        print("graph_title %s" % g[1]['title'] + SUBTITLE)
         print("graph_args %s" % g[1]['args'])
         print("graph_vlabel %s" % g[1]['vlabel'])
         print("graph_category %s" % GraphCategoryName)
