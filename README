@@ -1,10 +1,10 @@
 bind9stats.py
-version 0.22
+version 0.30
 
 A munin plugin to obtain data from a BIND9 statistics server, written
-in Python. Tested with BIND 9.10's statistics server exporting version
-3 of the statistics. In earlier versions of BIND 9.9, the v3 schema of
-statistics can be specified using the 'newstats' configuration directive.
+in Python. Tested with BIND 9.10 and 9.11's statistics server exporting 
+version 3 of the statistics. In earlier versions of BIND 9.9, the v3 schema 
+of statistics can be specified using the 'newstats' configuration directive.
 The newstats option was introduced in BIND 9.9.3.
 
 If you are using older versions of BIND 9.9 that only support version 

@@ -19,7 +19,7 @@ try:
 except ImportError:
     from urllib.request import urlopen           # for Python 3
 
-VERSION = "0.22"
+VERSION = "0.30"
 
 HOST = os.environ.get('HOST', "127.0.0.1")
 PORT = os.environ.get('PORT', "8053")
