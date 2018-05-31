@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
 """
-Munin plug-in for BIND9 DNS statistics server, written in Python.
-Tested with a BIND 9.10 statistics server exporting version 3.x of
-the XML statistics.
-
-Author: Shumon Huque <shuque - @ - gmail.com>
+Munin monitoring plug-in for BIND9 DNS statistics server. Tested
+with BIND 9.10, 9.11, and 9.12, exporting version 3.x of the XML
+statistics.
 
 Copyright (c) 2013-2015, Shumon Huque. All rights reserved.
 This program is free software; you can redistribute it and/or modify
