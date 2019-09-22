@@ -17,7 +17,7 @@ try:
 except ImportError:
     from urllib.request import urlopen           # for Python 3
 
-VERSION = "0.30"
+VERSION = "0.31"
 
 HOST = os.environ.get('HOST', "127.0.0.1")
 PORT = os.environ.get('PORT', "8053")
@@ -61,11 +61,12 @@ GraphConfig = (
           args='-l 0',
           vlabel='Queries/sec',
           location="server/counters[@type='nsstat']/counter",
-          fields=("Requestv4", "Requestv6", "ReqEdns0", "ReqTCP", "Response",
-                  "TruncatedResp", "RespEDNS0", "QrySuccess", "QryAuthAns",
-                  "QryNoauthAns", "QryReferral", "QryNxrrset", "QrySERVFAIL",
-                  "QryFORMERR", "QryNXDOMAIN", "QryRecursion", "QryDuplicate",
-                  "QryDropped", "QryFailure"),
+          fields=("Requestv4", "Requestv6", "ReqEdns0", "ReqTCP", "ReqTSIG",
+                  "Response", "TruncatedResp", "RespEDNS0", "RespTSIG",
+                  "QrySuccess", "QryAuthAns", "QryNoauthAns", "QryReferral",
+                  "QryNxrrset", "QrySERVFAIL", "QryFORMERR", "QryNXDOMAIN",
+                  "QryRecursion", "QryDuplicate", "QryDropped", "QryFailure",
+                  "XfrReqDone", "UpdateDone", "QryUDP", "QryTCP"),
           config=dict(type='DERIVE', min=0))),
 
     ('dns_cachedb' + INSTANCE,
