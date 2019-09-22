@@ -1,5 +1,15 @@
-bind9stats.py
-version 0.30
+# bind9stats.py
+
+Programs to obtain data from the statistics channel of a BIND9
+DNS server, and send it to some graphing and data visualization
+tools. The original program, bind9stats.py, was written to
+be a plugin for Munin. There is also a newer version, called
+bind9stats-graphite.py, that works with Graphite and Grafana.
+
+
+## bind9stats.py: Munin plugin
+
+version 0.31
 
 A munin plugin to obtain data from a BIND9 statistics server, written
 in Python. Tested with BIND 9.10, 9.11, and 9.12's statistics server
@@ -42,6 +52,14 @@ Instructions for using this:
   You can also run the plugin on another machine, if the statistics
   server allows queries remotely. Set the HOST and PORT environment
   variables appropriately in that case before invoking bind9stats.py.
+
+
+## bind9stats-graphite.py
+
+This version of the program runs as a long lived daemon, collects
+statistics at regular intervals (default is every minute), and then
+sends them to a Graphite server. Graphite is commonly the default
+backend for Grafana, a fancy data visualization tool/dashboard.
 
 
 Author: Shumon Huque
