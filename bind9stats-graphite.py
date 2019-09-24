@@ -24,7 +24,7 @@ import getopt
 import syslog
 import xml.etree.ElementTree as et
 from urllib.request import urlopen
-
+from urllib.error import URLError
 
 PROGNAME = os.path.basename(sys.argv[0])
 VERSION = "0.1"
@@ -51,7 +51,7 @@ class Prefs:
     BIND9_STATS_TYPE = "xml"
     GRAPHITE_HOST = os.environ.get('GRAPHITE_HOST', DEFAULT_GRAPHITE_HOST)
     GRAPHITE_PORT = int(os.environ.get('GRAPHITE_PORT', DEFAULT_GRAPHITE_PORT))
-    TIMEOUT = 10
+    TIMEOUT = 5
 
 
 def usage(msg=None):
@@ -399,7 +399,11 @@ def get_etree_root(url):
     the elapsed time."""
 
     time_start = time.time()
-    rawdata = urlopen(url)
+    try:
+        rawdata = urlopen(url, Prefs.TIMEOUT)
+    except URLError as e:
+        log_message("Error reading {}: {}".format(url, e))
+        return None, None
     outdata = et.parse(rawdata).getroot()
     elapsed = time.time() - time_start
     return outdata, elapsed
@@ -490,6 +494,10 @@ if __name__ == '__main__':
     while True:
 
         tree, duration = get_etree_root(bindstats_url())
+        if tree is None:
+            log_message("No statistics data found. Sleeping till next poll.")
+            time.sleep(Prefs.POLL_INTERVAL)
+            continue
         timestamp = int(time.time())
         next_poll_interval = Prefs.POLL_INTERVAL - duration
         gdata = graphite_data(tree, next_poll_interval)
