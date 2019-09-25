@@ -26,9 +26,9 @@ import xml.etree.ElementTree as et
 from urllib.request import urlopen
 from urllib.error import URLError
 
+
 PROGNAME = os.path.basename(sys.argv[0])
 VERSION = "0.1"
-
 
 DEFAULT_BIND9_HOST = '127.0.0.1'
 DEFAULT_BIND9_PORT = '8053'
@@ -106,10 +106,6 @@ def bindstats_url():
     """Return URL for BIND statistics"""
     return "http://{}:{}/{}".format(
         Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.BIND9_STATS_TYPE)
-
-
-# Hash Table to store results of previous stats
-STATS_DB = {}
 
 
 GraphConfig = (
@@ -400,52 +396,13 @@ def get_etree_root(url):
 
     time_start = time.time()
     try:
-        rawdata = urlopen(url, Prefs.TIMEOUT)
+        rawdata = urlopen(url)
     except URLError as e:
         log_message("Error reading {}: {}".format(url, e))
         return None, None
     outdata = et.parse(rawdata).getroot()
     elapsed = time.time() - time_start
     return outdata, elapsed
-
-
-def compute_statvalue(name, val, time_delta):
-
-    """Compute statistic value for counter/derive types"""
-
-    if name not in STATS_DB:
-        gvalue = 'nan'
-    else:
-        gvalue = (float(val) - float(STATS_DB[name])) / time_delta
-    STATS_DB[name] = val
-    return gvalue
-
-
-def graphite_data(etree, time_delta):
-
-    """Generate BIND9stats data in form suitable to send to Graphite"""
-
-    outdata = b""
-
-    for g in GraphConfig:
-        if not g[1]['enable']:
-            continue
-        data = getdata(g, etree, getvals=True)
-        if data is None:
-            continue
-        for (key, value) in data:
-            if not validkey(g, key):
-                continue
-            statname = "{}.{}.{}".format(Prefs.HOSTNAME, g[0], key)
-            if g[1]['config']['type'] != 'DERIVE':
-                gvalue = value
-            else:
-                gvalue = compute_statvalue(statname, value, time_delta)
-            outdata += "{} {} {}\r\n".format(
-                statname,
-                gvalue,
-                timestamp).encode()
-    return outdata
 
 
 def connect_host(host, port, timeout):
@@ -459,7 +416,7 @@ def connect_host(host, port, timeout):
     except OSError as e:
         log_message("connect() to {},{} failed: {}".format(
             host, port, e))
-        sys.exit(1)
+        return None
     return s
 
 
@@ -478,39 +435,108 @@ def send_socket(s, message):
         return True
 
 
+class Bind2Graphite:
+
+    def __init__(self):
+        self.url = bindstats_url()
+        self.statsdb = {}                  # stores stats from previous run
+        self.last_poll = None
+        self.timestamp = None
+        self.timestamp_int = None
+        self.time_delta = None
+        self.poll_duration = None
+        self.tree = None
+        self.graphite_data = None
+        self.socket = None
+
+    def poll_bind(self):
+        self.tree, self.poll_duration = get_etree_root(self.url)
+        self.timestamp = time.time()
+        self.timestamp_int = round(self.timestamp)
+
+    def compute_statvalue(self, name, val):
+        if name not in self.statsdb:
+            gvalue = 'nan'
+        else:
+            gvalue = (float(val) - float(self.statsdb[name])) / self.time_delta
+        self.statsdb[name] = val
+        return gvalue
+
+    def generate_graphite_data(self):
+        self.graphite_data = b""
+        if self.last_poll is not None:
+            self.time_delta = self.timestamp - self.last_poll
+        self.last_poll = self.timestamp
+
+        for g in GraphConfig:
+            if not g[1]['enable']:
+                continue
+            data = getdata(g, self.tree, getvals=True)
+            if data is None:
+                continue
+            for (key, value) in data:
+                if not validkey(g, key):
+                    continue
+                statname = "{}.{}.{}".format(Prefs.HOSTNAME, g[0], key)
+                if g[1]['config']['type'] != 'DERIVE':
+                    gvalue = value
+                else:
+                    gvalue = self.compute_statvalue(statname, value)
+                self.graphite_data += "{} {} {}\r\n".format(
+                    statname,
+                    gvalue,
+                    self.timestamp_int).encode()
+        log_message("DEBUG: datalen={}, gentime={:.2f}s, {}".format(
+            len(self.graphite_data),
+            self.poll_duration,
+            time.ctime(self.timestamp_int)))
+
+    def connect_graphite(self):
+        self.socket = connect_host(Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
+                                   Prefs.TIMEOUT)
+
+    def send_graphite(self):
+        if self.socket is None:
+            self.connect_graphite()
+        if self.socket is None:
+            return
+        if not send_socket(self.socket, self.graphite_data):
+            log_message("DEBUG: reconnecting socket ..")
+            self.socket.close()
+            time.sleep(0.2)
+            self.connect_graphite()
+            if self.socket is None:
+                return
+            if not send_socket(self.socket, self.graphite_data):
+                log_message("DEBUG: send() failed. Sleeping till next poll.")
+
+    def single_run(self):
+        self.poll_bind()
+        self.generate_graphite_data()
+        if self.tree is None:
+            log_message("No statistics data found. Sleeping till next poll.")
+            return
+        if Prefs.SEND:
+            self.send_graphite()
+        else:
+            print(self.graphite_data.decode())
+
+    def run(self):
+        while True:
+            time_start = time.time()
+            self.single_run()
+            elapsed = time.time() - time_start
+            if elapsed <= Prefs.POLL_INTERVAL:
+                sleeptime = Prefs.POLL_INTERVAL - elapsed
+            else:
+                sleeptime = Prefs.POLL_INTERVAL - (elapsed % Prefs.POLL_INTERVAL)
+            time.sleep(sleeptime)
+
+
 if __name__ == '__main__':
 
-
     process_args(sys.argv[1:])
-
     if Prefs.DAEMON:
         daemon(dirname=Prefs.WORKDIR)
     log_message("starting with host {}".format(Prefs.HOSTNAME))
-
-    if Prefs.SEND:
-        sock = connect_host(Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
-                            Prefs.TIMEOUT)
-
-    while True:
-
-        tree, duration = get_etree_root(bindstats_url())
-        if tree is None:
-            log_message("No statistics data found. Sleeping till next poll.")
-            time.sleep(Prefs.POLL_INTERVAL)
-            continue
-        timestamp = int(time.time())
-        next_poll_interval = Prefs.POLL_INTERVAL - duration
-        gdata = graphite_data(tree, next_poll_interval)
-        log_message("DEBUG: data of length: {} octets. {:.2f}s".format(
-            len(gdata), duration))
-        if Prefs.SEND:
-            if not send_socket(sock, gdata):
-                # Send failed, commonly broken connection etc. Reconnect,
-                # and wait for next polling cycle to resume data send.
-                log_message("DEBUG: reconnecting socket ..")
-                sock.close()
-                sock = connect_host(Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
-                                    Prefs.TIMEOUT)
-        else:
-            print(gdata.decode())
-        time.sleep(next_poll_interval)
+    Bind2Graphite().run()
