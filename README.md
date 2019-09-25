@@ -3,11 +3,12 @@
 Programs to obtain data from the statistics channel of a BIND9
 DNS server, and send it to some graphing and data visualization
 tools. The original program, bind9stats.py, was written to
-be a plugin for Munin. There is also a newer version, called
+be a plugin for Munin, and has recently been renamed to
+bind9stats-munin.py. There is also a newer version, called
 bind9stats-graphite.py, that works with Graphite and Grafana.
 
 
-## bind9stats.py: Munin plugin
+## bind9stats-munin.py: Munin plugin
 
 version 0.31
 
