@@ -10,8 +10,6 @@ intervals, pick out useful statistics, and send them to a Graphite/Carbon
 server (the default backend for the Graphana visualization dashboard among
 other things).
 
-A little bit of a work in progress, but does the job for now.
-
 Author: Shumon Huque <shuque@gmail.com>
 
 """
@@ -22,13 +20,16 @@ import time
 import socket
 import getopt
 import syslog
-import xml.etree.ElementTree as et
+try:
+    import lxml.etree as et
+except ImportError:
+    import xml.etree.ElementTree as et
 from urllib.request import urlopen
 from urllib.error import URLError
 
 
 PROGNAME = os.path.basename(sys.argv[0])
-VERSION = "0.1"
+VERSION = "0.20"
 
 DEFAULT_BIND9_HOST = '127.0.0.1'
 DEFAULT_BIND9_PORT = '8053'
@@ -102,139 +103,90 @@ def process_args(arguments):
     return
 
 
-def bindstats_url():
-    """Return URL for BIND statistics"""
-    return "http://{}:{}/{}".format(
-        Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.BIND9_STATS_TYPE)
-
-
 GraphConfig = (
 
     ('dns_opcode_in' + Prefs.INSTANCE,
-     dict(title='BIND [00] Opcodes In',
-          enable=True,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
           location="server/counters[@type='opcode']/counter")),
 
     ('dns_qtypes_in' + Prefs.INSTANCE,
-     dict(title='BIND [01] Query Types In',
-          enable=True,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
           location="server/counters[@type='qtype']/counter")),
 
     ('dns_server_stats' + Prefs.INSTANCE,
-     dict(title='BIND [02] Server Stats',
-          enable=False,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
-          location="server/counters[@type='nsstat']/counter",
-          fields=("Requestv4", "Requestv6", "ReqEdns0", "ReqTCP", "ReqTSIG",
-                  "Response", "TruncatedResp", "RespEDNS0", "RespTSIG",
-                  "QrySuccess", "QryAuthAns", "QryNoauthAns", "QryReferral",
-                  "QryNxrrset", "QrySERVFAIL", "QryFORMERR", "QryNXDOMAIN",
-                  "QryRecursion", "QryDuplicate", "QryDropped", "QryFailure",
-                  "XfrReqDone", "UpdateDone", "QryUDP", "QryTCP"))),
+          location="server/counters[@type='nsstat']/counter")),
 
     ('dns_cachedb' + Prefs.INSTANCE,
-     dict(title='BIND [03] CacheDB RRsets',
-          enable=False,
+     dict(enable=True,
           stattype='cachedb',
           metrictype='GAUGE',
           location="views/view[@name='_default']/cache[@name='_default']/rrset")),
 
     ('dns_resolver_stats' + Prefs.INSTANCE,
-     dict(title='BIND [04] Resolver Stats',
-          enable=False,                         # appears to be empty
+     dict(enable=True,                         # appears to be empty
           stattype='counter',
           metrictype='DERIVE',
           location="server/counters[@type='resstat']/counter")),
 
     ('dns_resolver_stats_qtype' + Prefs.INSTANCE,
-     dict(title='BIND [05] Resolver Outgoing Queries',
-          enable=False,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
           location="views/view[@name='_default']/counters[@type='resqtype']/counter")),
 
-    ('dns_resolver_stats_view' + Prefs.INSTANCE,
-     dict(title='BIND [06] Resolver Stats',
-          enable=False,
+    ('dns_resolver_stats_defview' + Prefs.INSTANCE,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
           location="views/view[@name='_default']/counters[@type='resstats']/counter")),
 
     ('dns_cachestats' + Prefs.INSTANCE,
-     dict(title='BIND [07] Resolver Cache Stats',
-          enable=False,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
-          location="views/view[@name='_default']/counters[@type='cachestats']/counter",
-          fields=("CacheHits", "CacheMisses", "QueryHits", "QueryMisses",
-                  "DeleteLRU", "DeleteTTL"))),
+          location="views/view[@name='_default']/counters[@type='cachestats']/counter")),
 
     ('dns_cache_mem' + Prefs.INSTANCE,
-     dict(title='BIND [08] Resolver Cache Memory Stats',
-          enable=False,
+     dict(enable=True,
           stattype='counter',
           metrictype='GAUGE',
           location="views/view[@name='_default']/counters[@type='cachestats']/counter",
           fields=("TreeMemInUse", "HeapMemInUse"))),
 
     ('dns_socket_activity' + Prefs.INSTANCE,
-     dict(title='BIND [09] Socket Activity',
-          enable=False,
+     dict(enable=True,
           stattype='counter',
           metrictype='GAUGE',
-          location="server/counters[@type='sockstat']/counter",
-          fields=("UDP4Active", "UDP6Active",
-                  "TCP4Active", "TCP6Active",
-                  "UnixActive", "RawActive"))),
+          location="server/counters[@type='sockstat']/counter")),
 
     ('dns_socket_stats' + Prefs.INSTANCE,
-     dict(title='BIND [10] Socket Rates',
-          enable=False,
+     dict(enable=False,
           stattype='counter',
           metrictype='DERIVE',
-          location="server/counters[@type='sockstat']/counter",
-          fields=("UDP4Open", "UDP6Open",
-                  "TCP4Open", "TCP6Open",
-                  "UDP4OpenFail", "UDP6OpenFail",
-                  "TCP4OpenFail", "TCP6OpenFail",
-                  "UDP4Close", "UDP6Close",
-                  "TCP4Close", "TCP6Close",
-                  "UDP4BindFail", "UDP6BindFail",
-                  "TCP4BindFail", "TCP6BindFail",
-                  "UDP4ConnFail", "UDP6ConnFail",
-                  "TCP4ConnFail", "TCP6ConnFail",
-                  "UDP4Conn", "UDP6Conn",
-                  "TCP4Conn", "TCP6Conn",
-                  "TCP4AcceptFail", "TCP6AcceptFail",
-                  "TCP4Accept", "TCP6Accept",
-                  "UDP4SendErr", "UDP6SendErr",
-                  "TCP4SendErr", "TCP6SendErr",
-                  "UDP4RecvErr", "UDP6RecvErr",
-                  "TCP4RecvErr", "TCP6RecvErr"))),
+          location="server/counters[@type='sockstat']/counter")),
 
     ('dns_zone_stats' + Prefs.INSTANCE,
-     dict(title='BIND [11] Zone Maintenance',
-          enable=True,
+     dict(enable=True,
           stattype='counter',
           metrictype='DERIVE',
           location="server/counters[@type='zonestat']/counter")),
 
     ('dns_memory_usage' + Prefs.INSTANCE,
-     dict(title='BIND [12] Memory Usage',
-          enable=True,
+     dict(enable=True,
           stattype='memory',
           metrictype='GAUGE',
           location='memory/summary',
           fields=("ContextSize", "BlockSize", "Lost", "InUse"))),
 
     ('dns_adbstat' + Prefs.INSTANCE,
-     dict(title='BIND [13] adbstat',
-          enable=False,
+     dict(enable=True,
           stattype='counter',
           metrictype='GAUGE',
           location="views/view[@name='_default']/counters[@type='adbstat']/counter")),
@@ -278,10 +230,9 @@ def log_message(msg):
         print(msg)
 
 
-def getstatsversion(etree):
-
-    """return version of BIND statistics"""
-    return etree.attrib['version']
+def dot2underscore(instring):
+    """replace periods with underscores in given string"""
+    return instring.replace('.', '_')
 
 
 def getdata(graph, etree, getvals=False):
@@ -360,21 +311,30 @@ def validkey(graph, key):
     return True
 
 
-def get_etree_root(url):
+def get_xml_etree_root(url, timeout):
 
     """Return the root of an ElementTree structure populated by
-    parsing BIND9 statistics obtained at the given URL. And also
+    parsing XML statistics obtained at the given URL. And also
     the elapsed time."""
 
     time_start = time.time()
     try:
-        rawdata = urlopen(url)
+        rawdata = urlopen(url, timeout=timeout)
     except URLError as e:
         log_message("Error reading {}: {}".format(url, e))
         return None, None
     outdata = et.parse(rawdata).getroot()
     elapsed = time.time() - time_start
     return outdata, elapsed
+
+
+def timestring2epoch(tstring):
+    """Convert bind9 stats time string to epoch value"""
+    try:
+        return time.mktime(time.strptime(tstring.split('.')[0],
+                                         "%Y-%m-%dT%H:%M:%S"))
+    except ValueError:
+        return 'nan'
 
 
 def connect_host(host, port, timeout):
@@ -407,65 +367,104 @@ def send_socket(s, message):
         return True
 
 
-class Bind2Graphite:
+class Bind9Stats:
 
-    def __init__(self):
-        self.url = bindstats_url()
-        self.statsdb = {}                  # stores stats from previous run
-        self.last_poll = None
+    def __init__(self, host, port, timeout):
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.url = "http://{}:{}/xml".format(host, port)
+        self.tree = None
+        self.poll_duration = None
         self.timestamp = None
         self.timestamp_int = None
+        self.last_poll = None
         self.time_delta = None
-        self.poll_duration = None
-        self.tree = None
+
+    def poll(self):
+        self.timestamp = time.time()
+        self.timestamp_int = round(self.timestamp)
+        self.tree, self.poll_duration = get_xml_etree_root(self.url, self.timeout)
+        if self.tree is not None:
+            if self.last_poll is not None:
+                self.time_delta = self.timestamp - self.last_poll
+            self.last_poll = self.timestamp
+
+
+class Bind2Graphite:
+
+    def __init__(self, stats, host, port, timeout=5, poll_interval=None):
+        self.stats = stats
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.poll_interval = poll_interval
+        self.statsdb = {}              # stores (derive) stats from previous run
         self.graphite_data = None
         self.socket = None
 
-    def poll_bind(self):
-        self.tree, self.poll_duration = get_etree_root(self.url)
-        self.timestamp = time.time()
-        self.timestamp_int = round(self.timestamp)
+    def reset(self):
+        self.graphite_data = b''
 
     def compute_statvalue(self, name, val):
         if name not in self.statsdb:
             gvalue = 'nan'
         else:
-            gvalue = (float(val) - float(self.statsdb[name])) / self.time_delta
+            gvalue = (float(val) - float(self.statsdb[name])) / self.stats.time_delta
         self.statsdb[name] = val
         return gvalue
 
-    def generate_graphite_data(self):
-        self.graphite_data = b""
-        if self.last_poll is not None:
-            self.time_delta = self.timestamp - self.last_poll
-        self.last_poll = self.timestamp
+    def add_metric_line(self, category, stat, value):
+        out = '{}.{}.{} {} {}\r\n'.format(
+            Prefs.HOSTNAME, category, stat, value, self.stats.timestamp_int)
+        self.graphite_data += out.encode()
+
+    def generate_server_data(self):
+        category = 'bind_info'
+        self.add_metric_line(category, 'boot-time',
+                             timestring2epoch(
+                                 self.stats.tree.find('server/boot-time').text))
+        self.add_metric_line(category, 'config-time',
+                             timestring2epoch(
+                                 self.stats.tree.find('server/config-time').text))
+
+        category = "bind_zones"
+        for z in self.stats.tree.find("views/view[@name='_default']/zones"):
+            ztype = z.find('type').text
+            if ztype != 'builtin':
+                zonename = dot2underscore(z.attrib['name'])
+                zserial = z.find('serial').text
+                self.add_metric_line(category, zonename, zserial)
+
+    def generate_graph_data(self):
 
         for g in GraphConfig:
             if not g[1]['enable']:
                 continue
-            data = getdata(g, self.tree, getvals=True)
+            data = getdata(g, self.stats.tree, getvals=True)
             if data is None:
                 continue
             for (key, value) in data:
                 if not validkey(g, key):
                     continue
-                statname = "{}.{}.{}".format(Prefs.HOSTNAME, g[0], key)
+                statname = "{}.{}".format(g[0], key)
                 if g[1]['metrictype'] != 'DERIVE':
                     gvalue = value
                 else:
                     gvalue = self.compute_statvalue(statname, value)
-                self.graphite_data += "{} {} {}\r\n".format(
-                    statname,
-                    gvalue,
-                    self.timestamp_int).encode()
+                self.add_metric_line(g[0], key, gvalue)
         log_message("DEBUG: datalen={}, gentime={:.2f}s, {}".format(
             len(self.graphite_data),
-            self.poll_duration,
-            time.ctime(self.timestamp_int)))
+            self.stats.poll_duration,
+            time.ctime(self.stats.timestamp_int)))
+
+    def generate_all_data(self):
+        self.reset()
+        ##self.generate_server_data()
+        self.generate_graph_data()
 
     def connect_graphite(self):
-        self.socket = connect_host(Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
-                                   Prefs.TIMEOUT)
+        self.socket = connect_host(self.host, self.port, self.timeout)
 
     def send_graphite(self):
         if self.socket is None:
@@ -483,26 +482,27 @@ class Bind2Graphite:
                 log_message("DEBUG: send() failed. Sleeping till next poll.")
 
     def single_run(self):
-        self.poll_bind()
-        self.generate_graphite_data()
-        if self.tree is None:
+        self.stats.poll()
+        if self.stats.tree is None:
             log_message("No statistics data found. Sleeping till next poll.")
             return
+        self.generate_all_data()
         if Prefs.SEND:
             self.send_graphite()
         else:
             print(self.graphite_data.decode())
+
+    def sleep_time(self, elapsed):
+        if elapsed <= self.poll_interval:
+            return self.poll_interval - elapsed
+        return self.poll_interval - (elapsed % self.poll_interval)
 
     def run(self):
         while True:
             time_start = time.time()
             self.single_run()
             elapsed = time.time() - time_start
-            if elapsed <= Prefs.POLL_INTERVAL:
-                sleeptime = Prefs.POLL_INTERVAL - elapsed
-            else:
-                sleeptime = Prefs.POLL_INTERVAL - (elapsed % Prefs.POLL_INTERVAL)
-            time.sleep(sleeptime)
+            time.sleep(self.sleep_time(elapsed))
 
 
 if __name__ == '__main__':
@@ -511,4 +511,8 @@ if __name__ == '__main__':
     if Prefs.DAEMON:
         daemon(dirname=Prefs.WORKDIR)
     log_message("starting with host {}".format(Prefs.HOSTNAME))
-    Bind2Graphite().run()
+
+    b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT)
+    Bind2Graphite(b9_stats,
+                  Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
+                  Prefs.TIMEOUT, poll_interval=Prefs.POLL_INTERVAL).run()
