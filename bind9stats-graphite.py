@@ -72,7 +72,6 @@ def usage(msg=None):
     -s server      Graphite server IP address (default: {2})
     -p port        Graphite server port (default: {3})
     -r             Really send data to Graphite (default: don't)
-
 """.format(PROGNAME, Prefs.POLL_INTERVAL,
            DEFAULT_GRAPHITE_HOST, DEFAULT_GRAPHITE_PORT))
     sys.exit(1)
@@ -226,7 +225,6 @@ def daemon(dirname=None, syslog_fac=syslog.LOG_DAEMON, umask=0o022):
 
 
 def log_message(msg):
-
     """log message to syslog if daemon, otherwise print"""
     if Prefs.DAEMON:
         syslog.syslog(Prefs.SYSLOG_PRI, msg)
@@ -239,74 +237,7 @@ def dot2underscore(instring):
     return instring.replace('.', '_')
 
 
-def getdata(graph, etree, getvals=False):
-
-    stattype = graph[1]['stattype']
-    location = graph[1]['location']
-
-    if stattype == 'memory':
-        return getdata_memory(graph, etree, getvals)
-    elif stattype == 'cachedb':
-        return getdata_cachedb(graph, etree, getvals)
-
-    results = []
-    counters = etree.findall(location)
-
-    if counters is None:                     # empty result
-        return results
-
-    for c in counters:
-        key = c.attrib['name']
-        val = c.text
-        if getvals:
-            results.append((key, val))
-        else:
-            results.append(key)
-    return results
-
-
-def getdata_memory(graph, etree, getvals=False):
-
-    location = graph[1]['location']
-
-    results = []
-    counters = etree.find(location)
-
-    if counters is None:                     # empty result
-        return results
-
-    for c in counters:
-        key = c.tag
-        val = c.text
-        if getvals:
-            results.append((key, val))
-        else:
-            results.append(key)
-    return results
-
-
-def getdata_cachedb(graph, etree, getvals=False):
-
-    location = graph[1]['location']
-
-    results = []
-    counters = etree.findall(location)
-
-    if counters is None:                     # empty result
-        return results
-
-    for c in counters:
-        key = c.find('name').text
-        val = c.find('counter').text
-        if getvals:
-            results.append((key, val))
-        else:
-            results.append(key)
-    return results
-
-
 def validkey(graph, key):
-
     """Are we interested in this key?"""
 
     fieldlist = graph[1].get('fields', None)
@@ -386,6 +317,60 @@ class Bind9Stats:
                 self.time_delta = self.timestamp - self.last_poll
             self.last_poll = self.timestamp
 
+    def getdata(self, graph):
+
+        stattype = graph[1]['stattype']
+        location = graph[1]['location']
+
+        if stattype == 'memory':
+            return self.getdata_memory(graph)
+        elif stattype == 'cachedb':
+            return self.getdata_cachedb(graph)
+
+        results = []
+        counters = self.tree.findall(location)
+
+        if counters is None:
+            return results
+
+        for c in counters:
+            key = c.attrib['name']
+            val = c.text
+            results.append((key, val))
+        return results
+
+    def getdata_memory(self, graph):
+
+        location = graph[1]['location']
+
+        results = []
+        counters = self.tree.find(location)
+
+        if counters is None:
+            return results
+
+        for c in counters:
+            key = c.tag
+            val = c.text
+            results.append((key, val))
+        return results
+
+    def getdata_cachedb(self, graph):
+
+        location = graph[1]['location']
+
+        results = []
+        counters = self.tree.findall(location)
+
+        if counters is None:
+            return results
+
+        for c in counters:
+            key = c.find('name').text
+            val = c.find('counter').text
+            results.append((key, val))
+        return results
+
 
 class Bind2Graphite:
 
@@ -422,7 +407,7 @@ class Bind2Graphite:
         for g in GraphConfig:
             if not g[1]['enable']:
                 continue
-            data = getdata(g, self.stats.tree, getvals=True)
+            data = self.stats.getdata(g)
             if data is None:
                 continue
             for (key, value) in data:
@@ -493,7 +478,8 @@ if __name__ == '__main__':
     process_args(sys.argv[1:])
     if Prefs.DAEMON:
         daemon(dirname=Prefs.WORKDIR)
-    log_message("starting with host {}".format(Prefs.HOSTNAME))
+    log_message("starting with host {}, graphite server: {},{}".format(
+        Prefs.HOSTNAME, Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT))
 
     b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT)
     Bind2Graphite(b9_stats,
