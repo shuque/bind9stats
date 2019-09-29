@@ -39,6 +39,7 @@ DEFAULT_GRAPHITE_PORT = '2003'
 
 class Prefs:
     """General Preferences"""
+    DEBUG = False                                      # -d: True
     DAEMON = True                                      # -f: foreground
     WORKDIR = "/"                                      # Fixed
     SEND = False                                       # -s: Send to Graphite
@@ -64,6 +65,7 @@ def usage(msg=None):
 
     Options:
     -h             Print this usage message
+    -d             Generate some diagnostic messages
     -f             Stay in foreground (default: become daemon)
     -n name        Specify server name (default: 1st component of hostname)
     -i interval    Polling interval in seconds (default: {1} sec)
@@ -79,7 +81,7 @@ def usage(msg=None):
 def process_args(arguments):
     """Process command line arguments"""
     try:
-        (options, args) = getopt.getopt(arguments, 'hfn:i:s:p:r')
+        (options, args) = getopt.getopt(arguments, 'hdfn:i:s:p:r')
     except getopt.GetoptError:
         usage("Argument processing error.")
     if args:
@@ -88,6 +90,8 @@ def process_args(arguments):
     for (opt, optval) in options:
         if opt == "-h":
             usage()
+        elif opt == "-d":
+            Prefs.DEBUG = True
         elif opt == "-f":
             Prefs.DAEMON = False
         elif opt == "-n":
@@ -358,7 +362,6 @@ def send_socket(s, message):
         octetsSent = 0
         while octetsSent < len(message):
             sentn = s.send(message[octetsSent:])
-            log_message("DEBUG: sendSocket: sent {} octets.".format(sentn))
             octetsSent += sentn
     except OSError as e:
         log_message("send_socket exception: {}".format(e))
@@ -393,14 +396,16 @@ class Bind9Stats:
 
 class Bind2Graphite:
 
-    def __init__(self, stats, host, port, timeout=5, poll_interval=None):
+    def __init__(self, stats, host, port, timeout=5, poll_interval=None,
+                 debug=False):
         self.stats = stats
         self.host = host
         self.port = port
         self.timeout = timeout
         self.poll_interval = poll_interval
+        self.debug = debug
         self.statsdb = {}              # stores (derive) stats from previous run
-        self.graphite_data = None
+        self.graphite_data = b''
         self.socket = None
 
     def reset(self):
@@ -415,29 +420,11 @@ class Bind2Graphite:
         return gvalue
 
     def add_metric_line(self, category, stat, value):
-        out = '{}.{}.{} {} {}\r\n'.format(
-            Prefs.HOSTNAME, category, stat, value, self.stats.timestamp_int)
+        metricpath = '{}.{}.{}'.format(Prefs.HOSTNAME, category, stat)
+        out = '{} {} {}\r\n'.format( metricpath, value, self.stats.timestamp_int)
         self.graphite_data += out.encode()
 
-    def generate_server_data(self):
-        category = 'bind_info'
-        self.add_metric_line(category, 'boot-time',
-                             timestring2epoch(
-                                 self.stats.tree.find('server/boot-time').text))
-        self.add_metric_line(category, 'config-time',
-                             timestring2epoch(
-                                 self.stats.tree.find('server/config-time').text))
-
-        category = "bind_zones"
-        for z in self.stats.tree.find("views/view[@name='_default']/zones"):
-            ztype = z.find('type').text
-            if ztype != 'builtin':
-                zonename = dot2underscore(z.attrib['name'])
-                zserial = z.find('serial').text
-                self.add_metric_line(category, zonename, zserial)
-
     def generate_graph_data(self):
-
         for g in GraphConfig:
             if not g[1]['enable']:
                 continue
@@ -453,15 +440,15 @@ class Bind2Graphite:
                 else:
                     gvalue = self.compute_statvalue(statname, value)
                 self.add_metric_line(g[0], key, gvalue)
-        log_message("DEBUG: datalen={}, gentime={:.2f}s, {}".format(
-            len(self.graphite_data),
-            self.stats.poll_duration,
-            time.ctime(self.stats.timestamp_int)))
 
     def generate_all_data(self):
         self.reset()
-        ##self.generate_server_data()
         self.generate_graph_data()
+        if self.debug:
+            log_message("DEBUG: datalen={}, gentime={:.2f}s, {}".format(
+                len(self.graphite_data),
+                self.stats.poll_duration,
+                time.ctime(self.stats.timestamp_int)))
 
     def connect_graphite(self):
         self.socket = connect_host(self.host, self.port, self.timeout)
@@ -515,4 +502,5 @@ if __name__ == '__main__':
     b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT)
     Bind2Graphite(b9_stats,
                   Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
-                  Prefs.TIMEOUT, poll_interval=Prefs.POLL_INTERVAL).run()
+                  Prefs.TIMEOUT, poll_interval=Prefs.POLL_INTERVAL,
+                  debug=Prefs.DEBUG).run()
