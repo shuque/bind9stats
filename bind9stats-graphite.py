@@ -95,7 +95,7 @@ def process_args(arguments):
         elif opt == "-f":
             Prefs.DAEMON = False
         elif opt == "-n":
-            Prefs.HOSTNAME = optval
+            Prefs.HOSTNAME = dot2underscore(optval)
         elif opt == "-i":
             Prefs.POLL_INTERVAL = int(optval)
         elif opt == "-s":
@@ -332,15 +332,6 @@ def get_xml_etree_root(url, timeout):
     return outdata, elapsed
 
 
-def timestring2epoch(tstring):
-    """Convert bind9 stats time string to epoch value"""
-    try:
-        return time.mktime(time.strptime(tstring.split('.')[0],
-                                         "%Y-%m-%dT%H:%M:%S"))
-    except ValueError:
-        return 'nan'
-
-
 def connect_host(ipaddr, port, timeout):
 
     """Connect with TCP to given host, port and return socket"""
@@ -398,11 +389,12 @@ class Bind9Stats:
 
 class Bind2Graphite:
 
-    def __init__(self, stats, host, port, timeout=5, poll_interval=None,
-                 debug=False):
+    def __init__(self, stats, host, port, name=None, timeout=5,
+                 poll_interval=None, debug=False):
         self.stats = stats
         self.host = host
         self.port = port
+        self.name = name
         self.timeout = timeout
         self.poll_interval = poll_interval
         self.debug = debug
@@ -422,8 +414,8 @@ class Bind2Graphite:
         return gvalue
 
     def add_metric_line(self, category, stat, value):
-        metricpath = '{}.{}.{}'.format(Prefs.HOSTNAME, category, stat)
-        out = '{} {} {}\r\n'.format( metricpath, value, self.stats.timestamp_int)
+        metricpath = '{}.{}.{}'.format(self.name, category, stat)
+        out = '{} {} {}\r\n'.format(metricpath, value, self.stats.timestamp_int)
         self.graphite_data += out.encode()
 
     def generate_graph_data(self):
@@ -447,10 +439,12 @@ class Bind2Graphite:
         self.reset()
         self.generate_graph_data()
         if self.debug:
-            log_message("DEBUG: datalen={}, gentime={:.2f}s, {}".format(
+            timestring = time.strftime("%Y-%m-%dT%H:%M:%S",
+                                       time.localtime(self.stats.timestamp_int))
+            log_message("DEBUG: {} datalen={}, gentime={:.2f}s".format(
+                timestring,
                 len(self.graphite_data),
-                self.stats.poll_duration,
-                time.ctime(self.stats.timestamp_int)))
+                self.stats.poll_duration))
 
     def connect_graphite(self):
         self.socket = connect_host(self.host, self.port, self.timeout)
@@ -504,5 +498,7 @@ if __name__ == '__main__':
     b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT)
     Bind2Graphite(b9_stats,
                   Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
-                  Prefs.TIMEOUT, poll_interval=Prefs.POLL_INTERVAL,
+                  name=Prefs.HOSTNAME,
+                  timeout=Prefs.TIMEOUT,
+                  poll_interval=Prefs.POLL_INTERVAL,
                   debug=Prefs.DEBUG).run()
