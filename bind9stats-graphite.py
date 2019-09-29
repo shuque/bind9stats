@@ -286,6 +286,9 @@ def send_socket(s, message):
         octetsSent = 0
         while octetsSent < len(message):
             sentn = s.send(message[octetsSent:])
+            if sentn == 0:
+                log_message("Broken connection. send() returned 0")
+                return False
             octetsSent += sentn
     except OSError as e:
         log_message("send_socket exception: {}".format(e))
