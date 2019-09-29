@@ -477,11 +477,12 @@ class Bind2Graphite:
             self.single_run()
             elapsed = time.time() - time_start
             if self.debug:
-                log_message("{} t0={:.3f} elapsed={:.3f} data={}".format(
+                log_message("{} t0={:.4f} elapsed={:.4f} data={}".format(
                     self.stats.timestamp2string(),
                     self.stats.timestamp,
                     elapsed,
                     len(self.graphite_data)))
+                elapsed = time.time() - time_start
             time.sleep(self.sleep_time(elapsed))
 
 
