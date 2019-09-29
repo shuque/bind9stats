@@ -256,7 +256,7 @@ def get_xml_etree_root(url, timeout):
     try:
         rawdata = urlopen(url, timeout=timeout)
     except URLError as e:
-        log_message("Error reading {}: {}".format(url, e))
+        log_message("ERROR: Error reading {}: {}".format(url, e))
         return None, None
     outdata = et.parse(rawdata).getroot()
     elapsed = time.time() - time_start
@@ -274,7 +274,7 @@ def connect_host(ipaddr, port, timeout):
     try:
         s.connect((ipaddr, port))
     except OSError as e:
-        log_message("connect() to {},{} failed: {}".format(
+        log_message("WARN: connect() to {},{} failed: {}".format(
             ipaddr, port, e))
         return None
     return s
@@ -287,11 +287,11 @@ def send_socket(s, message):
         while octetsSent < len(message):
             sentn = s.send(message[octetsSent:])
             if sentn == 0:
-                log_message("Broken connection. send() returned 0")
+                log_message("WARN: Broken connection. send() returned 0")
                 return False
             octetsSent += sentn
     except OSError as e:
-        log_message("send_socket exception: {}".format(e))
+        log_message("WARN: send_socket exception: {}".format(e))
         return False
     else:
         return True
@@ -319,6 +319,10 @@ class Bind9Stats:
             if self.last_poll is not None:
                 self.time_delta = self.timestamp - self.last_poll
             self.last_poll = self.timestamp
+
+    def timestamp2string(self):
+        return time.strftime("%Y-%m-%dT%H:%M:%S",
+                             time.localtime(self.timestamp_int))
 
     def getdata(self, graph):
 
@@ -426,13 +430,6 @@ class Bind2Graphite:
     def generate_all_data(self):
         self.reset()
         self.generate_graph_data()
-        if self.debug:
-            timestring = time.strftime("%Y-%m-%dT%H:%M:%S",
-                                       time.localtime(self.stats.timestamp_int))
-            log_message("DEBUG: {} datalen={}, gentime={:.2f}s".format(
-                timestring,
-                len(self.graphite_data),
-                self.stats.poll_duration))
 
     def connect_graphite(self):
         self.socket = connect_host(self.host, self.port, self.timeout)
@@ -443,19 +440,19 @@ class Bind2Graphite:
         if self.socket is None:
             return
         if not send_socket(self.socket, self.graphite_data):
-            log_message("DEBUG: reconnecting socket ..")
+            log_message("WARN: reconnecting socket ..")
             self.socket.close()
             time.sleep(0.2)
             self.connect_graphite()
             if self.socket is None:
                 return
             if not send_socket(self.socket, self.graphite_data):
-                log_message("DEBUG: send() failed. Sleeping till next poll.")
+                log_message("WARN: send() failed. Sleeping till next poll.")
 
     def single_run(self):
         self.stats.poll()
         if self.stats.tree is None:
-            log_message("No statistics data found. Sleeping till next poll.")
+            log_message("WARN: No statistics found. Sleeping till next poll.")
             return
         self.generate_all_data()
         if Prefs.SEND:
@@ -464,15 +461,27 @@ class Bind2Graphite:
             print(self.graphite_data.decode())
 
     def sleep_time(self, elapsed):
+        if self.stats.time_delta is None:
+            compensation_time = 0
+        else:
+            compensation_time = self.stats.time_delta - self.poll_interval
         if elapsed <= self.poll_interval:
-            return self.poll_interval - elapsed
-        return self.poll_interval - (elapsed % self.poll_interval)
+            base_value = self.poll_interval - elapsed
+        else:
+            base_value = self.poll_interval - (elapsed % self.poll_interval)
+        return base_value - compensation_time
 
     def run(self):
         while True:
             time_start = time.time()
             self.single_run()
             elapsed = time.time() - time_start
+            if self.debug:
+                log_message("{} t0={:.3f} elapsed={:.3f} data={}".format(
+                    self.stats.timestamp2string(),
+                    self.stats.timestamp,
+                    elapsed,
+                    len(self.graphite_data)))
             time.sleep(self.sleep_time(elapsed))
 
 
