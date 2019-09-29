@@ -341,17 +341,19 @@ def timestring2epoch(tstring):
         return 'nan'
 
 
-def connect_host(host, port, timeout):
+def connect_host(ipaddr, port, timeout):
 
     """Connect with TCP to given host, port and return socket"""
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    family = socket.AF_INET6 if ipaddr.find(':') != -1 else socket.AF_INET
+
+    s = socket.socket(family, socket.SOCK_STREAM)
     s.settimeout(timeout)
     try:
-        s.connect((host, port))
+        s.connect((ipaddr, port))
     except OSError as e:
         log_message("connect() to {},{} failed: {}".format(
-            host, port, e))
+            ipaddr, port, e))
         return None
     return s
 
