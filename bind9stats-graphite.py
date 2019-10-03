@@ -302,10 +302,11 @@ class Bind9Stats:
 
     """Class to poll BIND9 Statistics server and parse its data"""
 
-    def __init__(self, host, port, timeout):
+    def __init__(self, host, port, timeout, poll_interval=60):
         self.host = host
         self.port = port
         self.timeout = timeout
+        self.poll_interval = poll_interval
         self.url = "http://{}:{}/xml".format(host, port)
         self.tree = None
         self.poll_duration = None
@@ -317,7 +318,7 @@ class Bind9Stats:
     def poll(self):
         """Poll BIND stats and record timestamp and time delta"""
         self.timestamp = time.time()
-        self.g_timestamp = round(self.timestamp/60) * 60
+        self.g_timestamp = round(self.timestamp/self.poll_interval) * self.poll_interval
         self.tree, self.poll_duration = get_xml_etree_root(self.url, self.timeout)
         if self.tree is not None:
             if self.last_poll is not None:
@@ -496,12 +497,15 @@ class Bind2Graphite:
 if __name__ == '__main__':
 
     process_args(sys.argv[1:])
+
     if Prefs.DAEMON:
         daemon(dirname=Prefs.WORKDIR)
     log_message("starting with host {}, graphite server: {},{}".format(
         Prefs.HOSTNAME, Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT))
 
-    b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT)
+    b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT,
+                          poll_interval=Prefs.POLL_INTERVAL)
+
     Bind2Graphite(b9_stats,
                   Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT,
                   name=Prefs.HOSTNAME,
