@@ -20,6 +20,7 @@ import time
 import socket
 import getopt
 import syslog
+from datetime import datetime
 try:
     import lxml.etree as et
 except ImportError:
@@ -307,13 +308,13 @@ class Bind9Stats:
         self.tree = None
         self.poll_duration = None
         self.timestamp = None
-        self.timestamp_int = None
+        self.g_timestamp = None
         self.last_poll = None
         self.time_delta = None
 
     def poll(self):
         self.timestamp = time.time()
-        self.timestamp_int = round(self.timestamp)
+        self.g_timestamp = round(self.timestamp/60) * 60
         self.tree, self.poll_duration = get_xml_etree_root(self.url, self.timeout)
         if self.tree is not None:
             if self.last_poll is not None:
@@ -321,8 +322,8 @@ class Bind9Stats:
             self.last_poll = self.timestamp
 
     def timestamp2string(self):
-        return time.strftime("%Y-%m-%dT%H:%M:%S",
-                             time.localtime(self.timestamp_int))
+        return datetime.fromtimestamp(self.timestamp).strftime(
+            "%Y-%m-%dT%H:%M:%S.%f")[:-3]
 
     def getdata(self, graph):
 
@@ -407,7 +408,7 @@ class Bind2Graphite:
 
     def add_metric_line(self, category, stat, value):
         metricpath = '{}.{}.{}'.format(self.name, category, stat)
-        out = '{} {} {}\r\n'.format(metricpath, value, self.stats.timestamp_int)
+        out = '{} {} {}\r\n'.format(metricpath, value, self.stats.g_timestamp)
         self.graphite_data += out.encode()
 
     def generate_graph_data(self):
@@ -477,9 +478,9 @@ class Bind2Graphite:
             self.single_run()
             elapsed = time.time() - time_start
             if self.debug:
-                log_message("{} t0={:.4f} elapsed={:.4f} data={}".format(
+                log_message("{} {} elapsed={:.4f} data={}".format(
                     self.stats.timestamp2string(),
-                    self.stats.timestamp,
+                    self.stats.g_timestamp,
                     elapsed,
                     len(self.graphite_data)))
                 elapsed = time.time() - time_start
