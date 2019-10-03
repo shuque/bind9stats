@@ -207,7 +207,7 @@ def daemon(dirname=None, syslog_fac=syslog.LOG_DAEMON, umask=0o022):
         if pid > 0:
             sys.exit(0)
     except OSError as einfo:
-        print("fork() failed: %s" % einfo)
+        print("fork() failed: {}".format(einfo))
         sys.exit(1)
     else:
         if dirname:
@@ -256,8 +256,8 @@ def get_xml_etree_root(url, timeout):
     time_start = time.time()
     try:
         rawdata = urlopen(url, timeout=timeout)
-    except URLError as e:
-        log_message("ERROR: Error reading {}: {}".format(url, e))
+    except URLError as einfo:
+        log_message("ERROR: Error reading {}: {}".format(url, einfo))
         return None, None
     outdata = et.parse(rawdata).getroot()
     elapsed = time.time() - time_start
@@ -270,35 +270,37 @@ def connect_host(ipaddr, port, timeout):
 
     family = socket.AF_INET6 if ipaddr.find(':') != -1 else socket.AF_INET
 
-    s = socket.socket(family, socket.SOCK_STREAM)
-    s.settimeout(timeout)
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
     try:
-        s.connect((ipaddr, port))
-    except OSError as e:
+        sock.connect((ipaddr, port))
+    except OSError as einfo:
         log_message("WARN: connect() to {},{} failed: {}".format(
-            ipaddr, port, e))
+            ipaddr, port, einfo))
         return None
-    return s
+    return sock
 
 
-def send_socket(s, message):
+def send_socket(sock, message):
     """Send message on a connected socket"""
     try:
-        octetsSent = 0
-        while octetsSent < len(message):
-            sentn = s.send(message[octetsSent:])
+        octets_sent = 0
+        while octets_sent < len(message):
+            sentn = sock.send(message[octets_sent:])
             if sentn == 0:
                 log_message("WARN: Broken connection. send() returned 0")
                 return False
-            octetsSent += sentn
-    except OSError as e:
-        log_message("WARN: send_socket exception: {}".format(e))
+            octets_sent += sentn
+    except OSError as einfo:
+        log_message("WARN: send_socket exception: {}".format(einfo))
         return False
     else:
         return True
 
 
 class Bind9Stats:
+
+    """Class to poll BIND9 Statistics server and parse its data"""
 
     def __init__(self, host, port, timeout):
         self.host = host
@@ -313,6 +315,7 @@ class Bind9Stats:
         self.time_delta = None
 
     def poll(self):
+        """Poll BIND stats and record timestamp and time delta"""
         self.timestamp = time.time()
         self.g_timestamp = round(self.timestamp/60) * 60
         self.tree, self.poll_duration = get_xml_etree_root(self.url, self.timeout)
@@ -322,6 +325,7 @@ class Bind9Stats:
             self.last_poll = self.timestamp
 
     def timestamp2string(self):
+        """Convert timestamp into human readable string"""
         return datetime.fromtimestamp(self.timestamp).strftime(
             "%Y-%m-%dT%H:%M:%S.%f")[:-3]
 
@@ -382,6 +386,8 @@ class Bind9Stats:
 
 class Bind2Graphite:
 
+    """Functions to communicate BIND9 stats to a Graphite server"""
+
     def __init__(self, stats, host, port, name=None, timeout=5,
                  poll_interval=None, debug=False):
         self.stats = stats
@@ -412,21 +418,21 @@ class Bind2Graphite:
         self.graphite_data += out.encode()
 
     def generate_graph_data(self):
-        for g in GraphConfig:
-            if not g[1]['enable']:
+        for graph in GraphConfig:
+            if not graph[1]['enable']:
                 continue
-            data = self.stats.getdata(g)
+            data = self.stats.getdata(graph)
             if data is None:
                 continue
             for (key, value) in data:
-                if not validkey(g, key):
+                if not validkey(graph, key):
                     continue
-                statname = "{}.{}".format(g[0], key)
-                if g[1]['metrictype'] != 'DERIVE':
+                statname = "{}.{}".format(graph[0], key)
+                if graph[1]['metrictype'] != 'DERIVE':
                     gvalue = value
                 else:
                     gvalue = self.compute_statvalue(statname, value)
-                self.add_metric_line(g[0], key, gvalue)
+                self.add_metric_line(graph[0], key, gvalue)
 
     def generate_all_data(self):
         self.reset()
