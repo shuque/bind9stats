@@ -1,0 +1,10 @@
+#
+# This file should be installed as: /etc/sysconfig/bind9stats-graphite
+#
+# Options given to bind9stats-graphite.py
+#     -d: print timing related debug info
+#     -s <server>: graphite server address to send metrics to
+#     -r: really send to graphite server
+#
+
+OPTIONS="-d -s 127.0.0.1 -r"

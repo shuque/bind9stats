@@ -1,0 +1,31 @@
+#
+# systemd service script for bind9stats-graphite.py
+#
+# Installation:
+#    - Install as /usr/local/lib/systemd/system/bind9stats-graphite.service
+#    - Symlink:
+#         cd /usr/lib/systemd/system
+#         sudo ln -s /usr/local/lib/systemd/system/bind9stats-graphite.service .
+#    - Run "sudo systemctl daemon-reload"
+#    - Enable: sudo systemctl enable bind9stats-graphite
+#    - Start:  sudo systemctl start bind9stats-graphite
+#
+
+[Unit]
+Description=BIND9 DNS graphite statistics exporter
+After=network.target
+After=named.service
+Wants=named.service
+
+[Service]
+Type=forking
+User=named
+Group=named
+EnvironmentFile=-/etc/sysconfig/bind9stats-graphite
+ExecStart=/usr/local/sbin/bind9stats-graphite.py $OPTIONS
+Restart=always
+RestartSec=1s
+TimeoutSec=10
+
+[Install]
+WantedBy=multi-user.target
