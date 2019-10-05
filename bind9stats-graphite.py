@@ -430,6 +430,9 @@ class Bind2Graphite:
             gvalue = 'nan'
         else:
             gvalue = (float(val) - float(self.statsdb[name])) / self.stats.time_delta
+            if gvalue < 0:
+                ## negative increment. Probably BIND server restart
+                gvalue = 'nan'
         self.statsdb[name] = val
         return gvalue
 
@@ -492,7 +495,7 @@ class Bind2Graphite:
         compensation_time = 0
         if self.stats.time_delta is not None:
             if self.stats.time_delta > self.poll_interval:
-                compensation_time = 2 * (self.stats.time_delta - self.poll_interval)
+                compensation_time = 2 * (self.stats.time_delta % self.poll_interval)
         if elapsed <= self.poll_interval:
             base_value = self.poll_interval - elapsed
         else:
