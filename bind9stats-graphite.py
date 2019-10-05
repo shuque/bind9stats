@@ -134,7 +134,7 @@ GraphConfig = (
           location="views/view[@name='_default']/cache[@name='_default']/rrset")),
 
     ('dns_resolver_stats' + Prefs.INSTANCE,
-     dict(enable=True,                         # appears to be empty
+     dict(enable=False,                         # appears to be empty
           stattype='counter',
           metrictype='DERIVE',
           location="server/counters[@type='resstat']/counter")),
@@ -312,18 +312,38 @@ class Bind9Stats:
         self.poll_duration = None
         self.timestamp = None
         self.g_timestamp = None
+        self.g_timestamp_last = None
+        self.adjust = ''
         self.last_poll = None
         self.time_delta = None
 
     def poll(self):
         """Poll BIND stats and record timestamp and time delta"""
         self.timestamp = time.time()
-        self.g_timestamp = round(self.timestamp/self.poll_interval) * self.poll_interval
+        self.compute_graphite_timestamp()
         self.tree, self.poll_duration = get_xml_etree_root(self.url, self.timeout)
         if self.tree is not None:
             if self.last_poll is not None:
                 self.time_delta = self.timestamp - self.last_poll
             self.last_poll = self.timestamp
+
+    def compute_graphite_timestamp(self):
+        self.adjust = ''
+        self.g_timestamp = round(self.timestamp/self.poll_interval) \
+            * self.poll_interval
+        if self.g_timestamp_last is not None:
+            difference = self.g_timestamp - self.g_timestamp_last
+            if difference == 0:
+                self.g_timestamp += self.poll_interval
+                self.adjust = '+'
+            elif difference == self.poll_interval:
+                pass
+            elif difference == (2 * self.poll_interval):
+                self.g_timestamp -= self.poll_interval
+                self.adjust = '-'
+            else:
+                self.adjust = '?'
+        self.g_timestamp_last = self.g_timestamp
 
     def timestamp2string(self):
         """Convert timestamp into human readable string"""
@@ -469,10 +489,10 @@ class Bind2Graphite:
             print(self.graphite_data.decode())
 
     def sleep_time(self, elapsed):
-        if self.stats.time_delta is None:
-            compensation_time = 0
-        else:
-            compensation_time = self.stats.time_delta - self.poll_interval
+        compensation_time = 0
+        if self.stats.time_delta is not None:
+            if self.stats.time_delta > self.poll_interval:
+                compensation_time = 2 * (self.stats.time_delta - self.poll_interval)
         if elapsed <= self.poll_interval:
             base_value = self.poll_interval - elapsed
         else:
@@ -485,11 +505,15 @@ class Bind2Graphite:
             self.single_run()
             elapsed = time.time() - time_start
             if self.debug:
-                log_message("{} {} elapsed={:.4f} data={}".format(
+                time_delta = "{:.3f}".format(self.stats.time_delta) \
+                    if self.stats.time_delta else "null"
+                log_message("{} {:.3f} {} elapsed={:.3f} delta={} adj={}".format(
                     self.stats.timestamp2string(),
+                    self.stats.timestamp,
                     self.stats.g_timestamp,
                     elapsed,
-                    len(self.graphite_data)))
+                    time_delta,
+                    self.stats.adjust))
                 elapsed = time.time() - time_start
             time.sleep(self.sleep_time(elapsed))
 
