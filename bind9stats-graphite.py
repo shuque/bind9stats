@@ -506,7 +506,7 @@ class Bind2Graphite:
             elapsed = time.time() - time_start
             if self.debug:
                 time_delta = "{:.3f}".format(self.stats.time_delta) \
-                    if self.stats.time_delta else "null"
+                    if self.stats.time_delta is not None else "null"
                 log_message("{} {:.3f} {} elapsed={:.3f} delta={} adj={}".format(
                     self.stats.timestamp2string(),
                     self.stats.timestamp,
