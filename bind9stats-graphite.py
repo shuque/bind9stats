@@ -38,6 +38,15 @@ DEFAULT_BIND9_PORT = '8053'
 DEFAULT_GRAPHITE_HOST = '127.0.0.1'
 DEFAULT_GRAPHITE_PORT = '2003'
 
+# Hash table specifying which metric types to export.
+METRICS = {
+    'auth': False,
+    'res': False,
+    'bind': False,
+    'zone': False,
+    'memory': False,
+    'socket': False,
+}
 
 class Prefs:
     """General Preferences"""
@@ -45,14 +54,13 @@ class Prefs:
     DAEMON = True                                      # -f: foreground
     WORKDIR = "/"                                      # Fixed
     SEND = False                                       # -s: Send to Graphite
+    METRICS = "auth,res,bind,zone,memory"              # -m: metric types
     HOSTNAME = socket.gethostname().split('.')[0]      # -n to change
     SYSLOG_FAC = syslog.LOG_DAEMON                     # Syslog facility
     SYSLOG_PRI = syslog.LOG_INFO                       # Syslog priority
     POLL_INTERVAL = 60                                 # in secs (-p)
     BIND9_HOST = os.environ.get('BIND9_HOST', DEFAULT_BIND9_HOST)
     BIND9_PORT = os.environ.get('BIND9_PORT', DEFAULT_BIND9_PORT)
-    INSTANCE = os.environ.get('INSTANCE', "")
-    BIND9_STATS_TYPE = "xml"
     GRAPHITE_HOST = os.environ.get('GRAPHITE_HOST', DEFAULT_GRAPHITE_HOST)
     GRAPHITE_PORT = int(os.environ.get('GRAPHITE_PORT', DEFAULT_GRAPHITE_PORT))
     TIMEOUT = 5
@@ -69,12 +77,15 @@ def usage(msg=None):
     -h             Print this usage message
     -d             Generate some diagnostic messages
     -f             Stay in foreground (default: become daemon)
+    -m metrics     Comma separated metric types
+                   (default: {1})
+                   (supported: auth,res,bind,zone,memory,socket)
     -n name        Specify server name (default: 1st component of hostname)
-    -i interval    Polling interval in seconds (default: {1} sec)
-    -s server      Graphite server IP address (default: {2})
-    -p port        Graphite server port (default: {3})
+    -i interval    Polling interval in seconds (default: {2} sec)
+    -s server      Graphite server IP address (default: {3})
+    -p port        Graphite server port (default: {4})
     -r             Really send data to Graphite (default: don't)
-""".format(PROGNAME, Prefs.POLL_INTERVAL,
+""".format(PROGNAME, Prefs.METRICS, Prefs.POLL_INTERVAL,
            DEFAULT_GRAPHITE_HOST, DEFAULT_GRAPHITE_PORT))
     sys.exit(1)
 
@@ -82,7 +93,7 @@ def usage(msg=None):
 def process_args(arguments):
     """Process command line arguments"""
     try:
-        (options, args) = getopt.getopt(arguments, 'hdfn:i:s:p:r')
+        (options, args) = getopt.getopt(arguments, 'hdfm:n:i:s:p:r')
     except getopt.GetoptError:
         usage("Argument processing error.")
     if args:
@@ -95,6 +106,8 @@ def process_args(arguments):
             Prefs.DEBUG = True
         elif opt == "-f":
             Prefs.DAEMON = False
+        elif opt == "-m":
+            Prefs.METRICS = optval
         elif opt == "-n":
             Prefs.HOSTNAME = dot2underscore(optval)
         elif opt == "-i":
@@ -105,98 +118,108 @@ def process_args(arguments):
             Prefs.GRAPHITE_PORT = int(optval)
         elif opt == "-r":
             Prefs.SEND = True
+
+    for metric in Prefs.METRICS.split(','):
+        if metric in METRICS:
+            METRICS[metric] = True
+        else:
+            usage("{} is not a valid metric.".format(metric))
     return
 
 
-GraphConfig = (
+class Graphs:
 
-    ('dns_opcode_in' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="server/counters[@type='opcode']/counter")),
+    def __init__(self, metrics_dict):
+        self.metrics = metrics_dict
 
-    ('dns_qtypes_in' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="server/counters[@type='qtype']/counter")),
+        self.params = [
 
-    ('dns_server_stats' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="server/counters[@type='nsstat']/counter")),
+            ('dns_opcode_in',
+             dict(enable=self.metrics['auth'] or self.metrics['res'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="server/counters[@type='opcode']/counter")),
 
-    ('dns_cachedb' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='cachedb',
-          metrictype='GAUGE',
-          location="views/view[@name='_default']/cache[@name='_default']/rrset")),
+            ('dns_qtypes_in',
+             dict(enable=self.metrics['auth'] or self.metrics['res'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="server/counters[@type='qtype']/counter")),
 
-    ('dns_resolver_stats' + Prefs.INSTANCE,
-     dict(enable=False,                         # appears to be empty
-          stattype='counter',
-          metrictype='DERIVE',
-          location="server/counters[@type='resstat']/counter")),
+            ('dns_server_stats',
+             dict(enable=self.metrics['auth'] or self.metrics['res'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="server/counters[@type='nsstat']/counter")),
 
-    ('dns_resolver_stats_qtype' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="views/view[@name='_default']/counters[@type='resqtype']/counter")),
+            ('dns_cachedb',
+             dict(enable=self.metrics['res'],
+                  stattype='cachedb',
+                  metrictype='GAUGE',
+                  location="views/view[@name='_default']/cache[@name='_default']/rrset")),
 
-    ('dns_resolver_stats_defview' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="views/view[@name='_default']/counters[@type='resstats']/counter")),
+            ('dns_resolver_stats',
+             dict(enable=False,                         # appears to be empty
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="server/counters[@type='resstat']/counter")),
 
-    ('dns_cachestats' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="views/view[@name='_default']/counters[@type='cachestats']/counter")),
+            ('dns_resolver_stats_qtype',
+             dict(enable=self.metrics['res'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="views/view[@name='_default']/counters[@type='resqtype']/counter")),
 
-    ('dns_cache_mem' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='GAUGE',
-          location="views/view[@name='_default']/counters[@type='cachestats']/counter",
-          fields=("TreeMemInUse", "HeapMemInUse"))),
+            ('dns_resolver_stats_defview',
+             dict(enable=self.metrics['res'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="views/view[@name='_default']/counters[@type='resstats']/counter")),
 
-    ('dns_socket_activity' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='GAUGE',
-          location="server/counters[@type='sockstat']/counter")),
+            ('dns_cachestats',
+             dict(enable=self.metrics['res'] and self.metrics['memory'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="views/view[@name='_default']/counters[@type='cachestats']/counter")),
 
-    ('dns_socket_stats' + Prefs.INSTANCE,
-     dict(enable=False,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="server/counters[@type='sockstat']/counter")),
+            ('dns_cache_mem',
+             dict(enable=self.metrics['res'] and self.metrics['memory'],
+                  stattype='counter',
+                  metrictype='GAUGE',
+                  location="views/view[@name='_default']/counters[@type='cachestats']/counter")),
 
-    ('dns_zone_stats' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='DERIVE',
-          location="server/counters[@type='zonestat']/counter")),
+            ('dns_socket_activity',
+             dict(enable=self.metrics['socket'],
+                  stattype='counter',
+                  metrictype='GAUGE',
+                  location="server/counters[@type='sockstat']/counter")),
 
-    ('dns_memory_usage' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='memory',
-          metrictype='GAUGE',
-          location='memory/summary',
-          fields=("ContextSize", "BlockSize", "Lost", "InUse"))),
+            ('dns_socket_stats',
+             dict(enable=self.metrics['socket'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="server/counters[@type='sockstat']/counter")),
 
-    ('dns_adbstat' + Prefs.INSTANCE,
-     dict(enable=True,
-          stattype='counter',
-          metrictype='GAUGE',
-          location="views/view[@name='_default']/counters[@type='adbstat']/counter")),
+            ('dns_zone_stats',
+             dict(enable=self.metrics['auth'],
+                  stattype='counter',
+                  metrictype='DERIVE',
+                  location="server/counters[@type='zonestat']/counter")),
 
-)
+            ('dns_memory_usage',
+             dict(enable=(self.metrics['auth'] or self.metrics['res']) \
+                  and self.metrics['memory'],
+                  stattype='memory',
+                  metrictype='GAUGE',
+                  location='memory/summary')),
+
+            ('dns_adbstat',
+             dict(enable=False,
+                  stattype='counter',
+                  metrictype='GAUGE',
+                  location="views/view[@name='_default']/counters[@type='adbstat']/counter")),
+
+        ]
 
 
 def daemon(dirname=None, syslog_fac=syslog.LOG_DAEMON, umask=0o022):
@@ -237,15 +260,6 @@ def log_message(msg):
 def dot2underscore(instring):
     """replace periods with underscores in given string"""
     return instring.replace('.', '_')
-
-
-def validkey(graph, key):
-    """Are we interested in this key?"""
-
-    fieldlist = graph[1].get('fields', None)
-    if fieldlist and (key not in fieldlist):
-        return False
-    return True
 
 
 def get_xml_etree_root(url, timeout):
@@ -359,15 +373,15 @@ class Bind9Stats:
         except ValueError:
             return 'nan'
 
-    def getdata(self, graph):
+    def getdata(self, graphconfig):
 
-        stattype = graph[1]['stattype']
-        location = graph[1]['location']
+        stattype = graphconfig['stattype']
+        location = graphconfig['location']
 
         if stattype == 'memory':
-            return self.getdata_memory(graph)
+            return self.getdata_memory(graphconfig)
         elif stattype == 'cachedb':
-            return self.getdata_cachedb(graph)
+            return self.getdata_cachedb(graphconfig)
 
         results = []
         counters = self.tree.findall(location)
@@ -381,9 +395,9 @@ class Bind9Stats:
             results.append((key, val))
         return results
 
-    def getdata_memory(self, graph):
+    def getdata_memory(self, graphconfig):
 
-        location = graph[1]['location']
+        location = graphconfig['location']
 
         results = []
         counters = self.tree.find(location)
@@ -397,9 +411,9 @@ class Bind9Stats:
             results.append((key, val))
         return results
 
-    def getdata_cachedb(self, graph):
+    def getdata_cachedb(self, graphconfig):
 
-        location = graph[1]['location']
+        location = graphconfig['location']
 
         results = []
         counters = self.tree.findall(location)
@@ -445,20 +459,21 @@ class Bind2Graphite:
         self.statsdb[name] = val
         return gvalue
 
-    def add_metric_line(self, category, stat, value):
+    def add_metric(self, category, stat, value):
         metricpath = '{}.{}.{}'.format(self.name, category, stat)
         out = '{} {} {}\r\n'.format(metricpath, value, self.stats.g_timestamp)
         self.graphite_data += out.encode()
 
-    def generate_server_data(self):
+    def generate_bind_data(self):
         category = 'bind_info'
-        self.add_metric_line(category, 'boot-time',
-                             self.stats.timestring2since(
-                                 self.stats.tree.find('server/boot-time').text))
-        self.add_metric_line(category, 'config-time',
-                             self.stats.timestring2since(
-                                 self.stats.tree.find('server/config-time').text))
+        self.add_metric(category, 'boot-time',
+                        self.stats.timestring2since(
+                            self.stats.tree.find('server/boot-time').text))
+        self.add_metric(category, 'config-time',
+                        self.stats.timestring2since(
+                            self.stats.tree.find('server/config-time').text))
 
+    def generate_zone_data(self):
         category = "bind_zones"
         for zone in self.stats.tree.find("views/view[@name='_default']/zones"):
             ztype = zone.find('type').text
@@ -467,28 +482,29 @@ class Bind2Graphite:
                 zserial = zone.find('serial').text
                 statname = "{}.{}".format(category, zonename)
                 serial_increment = self.compute_statvalue(statname, zserial)
-                self.add_metric_line(category, zonename, serial_increment)
+                self.add_metric(category, zonename, serial_increment)
 
     def generate_graph_data(self):
-        for graph in GraphConfig:
-            if not graph[1]['enable']:
+        for (graphname, graphconfig) in graphs.params:
+            if not graphconfig['enable']:
                 continue
-            data = self.stats.getdata(graph)
+            data = self.stats.getdata(graphconfig)
             if data is None:
                 continue
             for (key, value) in data:
-                if not validkey(graph, key):
-                    continue
-                statname = "{}.{}".format(graph[0], key)
-                if graph[1]['metrictype'] != 'DERIVE':
+                statname = "{}.{}".format(graphname, key)
+                if graphconfig['metrictype'] != 'DERIVE':
                     gvalue = value
                 else:
                     gvalue = self.compute_statvalue(statname, value)
-                self.add_metric_line(graph[0], key, gvalue)
+                self.add_metric(graphname, key, gvalue)
 
     def generate_all_data(self):
         self.reset()
-        self.generate_server_data()
+        if graphs.metrics['bind']:
+            self.generate_bind_data()
+        if graphs.metrics['zone']:
+            self.generate_zone_data()
         self.generate_graph_data()
 
     def connect_graphite(self):
@@ -558,6 +574,8 @@ if __name__ == '__main__':
         daemon(dirname=Prefs.WORKDIR)
     log_message("starting with host {}, graphite server: {},{}".format(
         Prefs.HOSTNAME, Prefs.GRAPHITE_HOST, Prefs.GRAPHITE_PORT))
+
+    graphs = Graphs(METRICS)
 
     b9_stats = Bind9Stats(Prefs.BIND9_HOST, Prefs.BIND9_PORT, Prefs.TIMEOUT,
                           poll_interval=Prefs.POLL_INTERVAL)
