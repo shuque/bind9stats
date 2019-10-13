@@ -27,6 +27,12 @@
       "id": "graphite",
       "name": "Graphite",
       "version": "5.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "singlestat",
+      "name": "Singlestat",
+      "version": "5.0.0"
     }
   ],
   "annotations": {
@@ -49,6 +55,237 @@
   "links": [],
   "panels": [
     {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "datasource": "${DS_GRAPHITE}",
+      "format": "s",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "id": 20,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": " ago",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": false
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "refId": "A",
+          "target": "hostname.bind_info.boot-time"
+        }
+      ],
+      "thresholds": "",
+      "title": "BIND Start Time",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "datasource": "${DS_GRAPHITE}",
+      "format": "s",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 18,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": " ago",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": false
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "refId": "A",
+          "target": "hostname.bind_info.config-time"
+        }
+      ],
+      "thresholds": "",
+      "title": "BIND Config Time",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "fill": 1,
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 24,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": ""
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Panel Title",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -59,7 +296,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 3
       },
       "id": 2,
       "legend": {
@@ -71,6 +308,8 @@
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -89,7 +328,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_opcode_in.*"
+          "target": "aliasByNode(hostname.dns_opcode_in.*, 2)"
         }
       ],
       "thresholds": [],
@@ -144,7 +383,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 3
       },
       "id": 4,
       "legend": {
@@ -156,6 +395,8 @@
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -174,14 +415,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_qtypes_in.*"
+          "target": "aliasByNode(hostname.dns_qtypes_in.*, 2)"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "dns_qtypes_in",
+      "title": "qtypes_in",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -229,7 +470,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 12
       },
       "id": 6,
       "legend": {
@@ -241,6 +482,8 @@
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -259,14 +502,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_resolver_stats_qtype.*"
+          "target": "aliasByNode(hostname.dns_resolver_stats_qtype.*, 2)"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "dns_resolver_stats_qtype",
+      "title": "resolver_stats_qtype",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -314,7 +557,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 12
       },
       "id": 16,
       "legend": {
@@ -326,6 +569,8 @@
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -344,7 +589,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_resolver_stats_defview.*"
+          "target": "aliasByNode(hostname.dns_resolver_stats_defview.*, 2)"
         }
       ],
       "thresholds": [],
@@ -399,9 +644,9 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 21
       },
-      "id": 12,
+      "id": 14,
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -411,6 +656,8 @@
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -429,14 +676,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_server_stats.*"
+          "target": "aliasByNode(hostname.dns_zone_stats.*, 2)"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "dns_server_stats",
+      "title": "zone_maint",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -484,9 +731,9 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 21
       },
-      "id": 10,
+      "id": 12,
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -496,6 +743,8 @@
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -514,14 +763,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_resolver_stats_defview.*"
+          "target": "aliasByNode(hostname.dns_server_stats.*, 2)"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "dns_resolver_stats",
+      "title": "server_stats",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -538,7 +787,7 @@
       "yaxes": [
         {
           "format": "short",
-          "label": null,
+          "label": "Ops/sec",
           "logBase": 1,
           "max": null,
           "min": null,
@@ -563,24 +812,23 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_GRAPHITE}",
       "fill": 1,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 30
       },
-      "id": 14,
+      "id": 22,
       "legend": {
         "alignAsTable": true,
         "avg": true,
         "current": true,
-        "hideEmpty": true,
-        "hideZero": true,
         "max": true,
         "min": true,
         "show": true,
+        "sort": "avg",
+        "sortDesc": true,
         "total": false,
         "values": true
       },
@@ -599,14 +847,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "hostname.dns_zone_stats.*"
+          "target": "aliasByNode(hostname.bind_zones.*, 2)"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "dns_zone_maint",
+      "title": "Serial Increments",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -623,7 +871,7 @@
       "yaxes": [
         {
           "format": "short",
-          "label": "Ops/sec",
+          "label": null,
           "logBase": 1,
           "max": null,
           "min": null,
@@ -680,7 +928,7 @@
     ]
   },
   "timezone": "",
-  "title": "Host - BIND",
+  "title": "Hostname - BIND",
   "uid": "_hUr1lpWz",
-  "version": 21
+  "version": 34
 }
