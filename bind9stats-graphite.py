@@ -17,6 +17,7 @@ Author: Shumon Huque <shuque@gmail.com>
 import os
 import sys
 import time
+import calendar
 import socket
 import getopt
 import syslog
@@ -350,6 +351,14 @@ class Bind9Stats:
         return datetime.fromtimestamp(self.timestamp).strftime(
             "%Y-%m-%dT%H:%M:%S.%f")[:-3]
 
+    def timestring2since(self, tstring):
+        """Convert bind9 stats time string to seconds since current time"""
+        try:
+            return self.timestamp - calendar.timegm(time.strptime(
+                tstring.split('.')[0], "%Y-%m-%dT%H:%M:%S"))
+        except ValueError:
+            return 'nan'
+
     def getdata(self, graph):
 
         stattype = graph[1]['stattype']
@@ -441,6 +450,25 @@ class Bind2Graphite:
         out = '{} {} {}\r\n'.format(metricpath, value, self.stats.g_timestamp)
         self.graphite_data += out.encode()
 
+    def generate_server_data(self):
+        category = 'bind_info'
+        self.add_metric_line(category, 'boot-time',
+                             self.stats.timestring2since(
+                                 self.stats.tree.find('server/boot-time').text))
+        self.add_metric_line(category, 'config-time',
+                             self.stats.timestring2since(
+                                 self.stats.tree.find('server/config-time').text))
+
+        category = "bind_zones"
+        for zone in self.stats.tree.find("views/view[@name='_default']/zones"):
+            ztype = zone.find('type').text
+            if ztype != 'builtin':
+                zonename = dot2underscore(zone.attrib['name'])
+                zserial = zone.find('serial').text
+                statname = "{}.{}".format(category, zonename)
+                serial_increment = self.compute_statvalue(statname, zserial)
+                self.add_metric_line(category, zonename, serial_increment)
+
     def generate_graph_data(self):
         for graph in GraphConfig:
             if not graph[1]['enable']:
@@ -460,6 +488,7 @@ class Bind2Graphite:
 
     def generate_all_data(self):
         self.reset()
+        self.generate_server_data()
         self.generate_graph_data()
 
     def connect_graphite(self):
