@@ -80,21 +80,26 @@ def usage(msg=None):
     -f             Stay in foreground (default: become daemon)
     -m metrics     Comma separated metric types
                    (default: {1})
-                   (supported: auth,res,bind,zone,memory,socket)
+                   (supported: {2})
     -n name        Specify server name (default: 1st component of hostname)
-    -i interval    Polling interval in seconds (default: {2} sec)
-    -s server      Graphite server IP address (default: {3})
-    -p port        Graphite server port (default: {4})
+    -i interval    Polling interval in seconds (default: {3} sec)
+    -s server      Graphite server IP address (default: {4})
+    -p port        Graphite server port (default: {5})
     -r             Really send data to Graphite (default: don't)
 
     -o options     Other comma separated options (default: none)
                    (supported: derive)
-""".format(PROGNAME, Prefs.METRICS, Prefs.POLL_INTERVAL,
-           DEFAULT_GRAPHITE_HOST, DEFAULT_GRAPHITE_PORT))
+""".format(PROGNAME,
+           Prefs.METRICS,
+           ",".join(METRICS.keys()),
+           Prefs.POLL_INTERVAL,
+           DEFAULT_GRAPHITE_HOST,
+           DEFAULT_GRAPHITE_PORT))
     sys.exit(1)
 
 
 def set_other_options(args):
+    """Set other options from a comma separated list specified with -o"""
     for opt in args.split(','):
         if opt == "derive":
             Prefs.DERIVE = True
@@ -142,6 +147,8 @@ def process_args(arguments):
 
 
 class Graphs:
+
+    """Class to encapsulate graphable metric types and parameters"""
 
     def __init__(self, metrics_dict):
         self.metrics = metrics_dict
@@ -366,6 +373,7 @@ class Bind9Stats:
             self.last_poll = self.timestamp
 
     def compute_graphite_timestamp(self):
+        """Graphite timestamp computation function"""
         self.adjust = ''
         self.g_timestamp = round(self.timestamp/self.poll_interval) \
             * self.poll_interval
@@ -397,6 +405,7 @@ class Bind9Stats:
             return 'nan'
 
     def getdata(self, graphconfig):
+        """Obtain data from XML stats location"""
 
         stattype = graphconfig['stattype']
         location = graphconfig['location']
@@ -419,6 +428,7 @@ class Bind9Stats:
         return results
 
     def getdata_memory(self, graphconfig):
+        """Obtain memory type XML stats"""
 
         location = graphconfig['location']
 
@@ -435,6 +445,7 @@ class Bind9Stats:
         return results
 
     def getdata_cachedb(self, graphconfig):
+        """Obtain cachedb type XML stats"""
 
         location = graphconfig['location']
 
@@ -469,9 +480,11 @@ class Bind2Graphite:
         self.socket = None
 
     def reset(self):
+        """Empty graphite_data byte string"""
         self.graphite_data = b''
 
     def compute_statvalue(self, name, val):
+        """Compute metric value for DERIVE types"""
         if name not in self.statsdb:
             gvalue = 'nan'
         else:
@@ -483,11 +496,15 @@ class Bind2Graphite:
         return gvalue
 
     def add_metric(self, category, stat, value):
+        """Add graphite metrics line"""
+
         metricpath = '{}.{}.{}'.format(self.name, category, stat)
         out = '{} {} {}\r\n'.format(metricpath, value, self.stats.g_timestamp)
         self.graphite_data += out.encode()
 
     def generate_bind_data(self):
+        """bind_info data: boot-time and config-time"""
+
         category = 'bind_info'
         self.add_metric(category, 'boot-time',
                         self.stats.timestring2since(
@@ -497,6 +514,8 @@ class Bind2Graphite:
                             self.stats.tree.find('server/config-time').text))
 
     def generate_zone_data(self):
+        """bind zone data: zonename and serial number or delta"""
+
         category = "bind_zones"
         for zone in self.stats.tree.find("views/view[@name='_default']/zones"):
             ztype = zone.find('type').text
@@ -504,10 +523,15 @@ class Bind2Graphite:
                 zonename = dot2underscore(zone.attrib['name'])
                 zserial = zone.find('serial').text
                 statname = "{}.{}".format(category, zonename)
-                serial_increment = self.compute_statvalue(statname, zserial)
-                self.add_metric(category, zonename, serial_increment)
+                if Prefs.DERIVE:
+                    serial_increment = self.compute_statvalue(statname, zserial)
+                    self.add_metric(category, zonename, serial_increment)
+                else:
+                    self.add_metric(category, zonename, zserial)
 
     def generate_graph_data(self):
+        """Generate all the graphable metrics data"""
+
         for (graphname, graphconfig) in graphs.params:
             if not graphconfig['enable']:
                 continue
@@ -525,6 +549,7 @@ class Bind2Graphite:
                 self.add_metric(graphname, key, gvalue)
 
     def generate_all_data(self):
+        """Generate all metrics data"""
         self.reset()
         if graphs.metrics['bind']:
             self.generate_bind_data()
@@ -533,9 +558,12 @@ class Bind2Graphite:
         self.generate_graph_data()
 
     def connect_graphite(self):
+        """Connect to Graphite server and record socket info"""
         self.socket = connect_host(self.host, self.port, self.timeout)
 
     def send_graphite(self):
+        """Send metrics data to Graphite server"""
+
         if self.socket is None:
             self.connect_graphite()
         if self.socket is None:
@@ -551,6 +579,7 @@ class Bind2Graphite:
                 log_message("WARN: send() failed. Sleeping till next poll.")
 
     def single_run(self):
+        """A single run of polling stats data and sending it out"""
         self.stats.poll()
         if self.stats.tree is None:
             log_message("WARN: No statistics found. Sleeping till next poll.")
@@ -562,6 +591,7 @@ class Bind2Graphite:
             print(self.graphite_data.decode())
 
     def sleep_time(self, elapsed):
+        """Compute amount of time we have to sleep till next run"""
         compensation_time = 0
         if self.stats.time_delta is not None:
             if self.stats.time_delta > self.poll_interval:
@@ -573,6 +603,7 @@ class Bind2Graphite:
         return base_value - compensation_time
 
     def run(self):
+        """Run loop"""
         while True:
             time_start = time.time()
             self.single_run()
