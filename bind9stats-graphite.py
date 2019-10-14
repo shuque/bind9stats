@@ -211,7 +211,8 @@ class Graphs:
                   and self.metrics['memory'],
                   stattype='memory',
                   metrictype='GAUGE',
-                  location='memory/summary')),
+                  location='memory/summary',
+                  fields=("ContextSize", "BlockSize", "Lost", "InUse"))),
 
             ('dns_adbstat',
              dict(enable=False,
@@ -255,6 +256,14 @@ def log_message(msg):
         syslog.syslog(Prefs.SYSLOG_PRI, msg)
     else:
         print(msg)
+
+
+def validkey(graphconfig, key):
+    """Are we interested in this key?"""
+    fieldlist = graphconfig.get('fields', None)
+    if fieldlist and (key not in fieldlist):
+        return False
+    return True
 
 
 def dot2underscore(instring):
@@ -492,6 +501,8 @@ class Bind2Graphite:
             if data is None:
                 continue
             for (key, value) in data:
+                if not validkey(graphconfig, key):
+                    continue
                 statname = "{}.{}".format(graphname, key)
                 if graphconfig['metrictype'] != 'DERIVE':
                     gvalue = value
