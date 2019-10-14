@@ -64,6 +64,7 @@ class Prefs:
     GRAPHITE_HOST = os.environ.get('GRAPHITE_HOST', DEFAULT_GRAPHITE_HOST)
     GRAPHITE_PORT = int(os.environ.get('GRAPHITE_PORT', DEFAULT_GRAPHITE_PORT))
     TIMEOUT = 5
+    DERIVE = False                                     # -o derive
 
 
 def usage(msg=None):
@@ -85,15 +86,26 @@ def usage(msg=None):
     -s server      Graphite server IP address (default: {3})
     -p port        Graphite server port (default: {4})
     -r             Really send data to Graphite (default: don't)
+
+    -o options     Other comma separated options (default: none)
+                   (supported: derive)
 """.format(PROGNAME, Prefs.METRICS, Prefs.POLL_INTERVAL,
            DEFAULT_GRAPHITE_HOST, DEFAULT_GRAPHITE_PORT))
     sys.exit(1)
 
 
+def set_other_options(args):
+    for opt in args.split(','):
+        if opt == "derive":
+            Prefs.DERIVE = True
+        else:
+            usage("Unrecognized option: {}".format(opt))
+
+
 def process_args(arguments):
     """Process command line arguments"""
     try:
-        (options, args) = getopt.getopt(arguments, 'hdfm:n:i:s:p:r')
+        (options, args) = getopt.getopt(arguments, 'hdfm:n:i:s:p:ro:')
     except getopt.GetoptError:
         usage("Argument processing error.")
     if args:
@@ -118,6 +130,8 @@ def process_args(arguments):
             Prefs.GRAPHITE_PORT = int(optval)
         elif opt == "-r":
             Prefs.SEND = True
+        elif opt == "-o":
+            set_other_options(optval)
 
     for metric in Prefs.METRICS.split(','):
         if metric in METRICS:
@@ -504,10 +518,10 @@ class Bind2Graphite:
                 if not validkey(graphconfig, key):
                     continue
                 statname = "{}.{}".format(graphname, key)
-                if graphconfig['metrictype'] != 'DERIVE':
-                    gvalue = value
-                else:
+                if Prefs.DERIVE and graphconfig['metrictype'] == 'DERIVE':
                     gvalue = self.compute_statvalue(statname, value)
+                else:
+                    gvalue = value
                 self.add_metric(graphname, key, gvalue)
 
     def generate_all_data(self):
