@@ -203,12 +203,6 @@ class Graphs:
                   metrictype='DERIVE',
                   location="views/view[@name='_default']/counters[@type='cachestats']/counter")),
 
-            ('dns_cache_mem',
-             dict(enable=self.metrics['res'] and self.metrics['memory'],
-                  stattype='counter',
-                  metrictype='GAUGE',
-                  location="views/view[@name='_default']/counters[@type='cachestats']/counter")),
-
             ('dns_socket_activity',
              dict(enable=self.metrics['socket'],
                   stattype='counter',
