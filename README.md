@@ -59,12 +59,49 @@ Sample munin graphs produced by this plugin:
 ![Muning Graph 1](visual/munin/1opcodes.jpg)
 ![Muning Graph 1](visual/munin/2queries-in.jpg)
 
+
 ## bind9stats-graphite.py
 
-This version of the program runs as a long lived daemon, collects
-statistics at regular intervals (default is every minute), and then
-sends them to a Graphite server. Graphite is commonly the default
-backend for Grafana, a fancy data visualization tool/dashboard. The included sample Grafana dashboard configuration file (Grafana-BIND.json) produces output like the following:
+This version of the program collects BIND9 statistics and sends them
+to a [Graphite](https://graphite.readthedocs.io/en/latest/) server,
+another monitoring tool and time series data store. This runs as a long
+lived daemon, collects statistics at regular intervals (default is every
+minute), and then sends them to a Graphite server.
+
+```
+Usage: bind9stats-graphite.py [Options]
+
+    Options:
+    -h             Print this usage message
+    -d             Generate some diagnostic messages
+    -f             Stay in foreground (default: become daemon)
+    -m metrics     Comma separated metric types
+                   (default: auth,res,bind,zone,memory)
+                   (supported: auth,res,bind,zone,memory,socket)
+    -n name        Specify server name (default: 1st component of hostname)
+    -i interval    Polling interval in seconds (default: 60 sec)
+    -s server      Graphite server IP address (default: 127.0.0.1)
+    -p port        Graphite server port (default: 2003)
+    -r             Really send data to Graphite (default: don't)
+
+    -o options     Other comma separated options (default: none)
+                   (supported: derive)
+```
+
+Installation:
+
+* Install the program into a suitable location on your system, e.g.
+    sudo cp bind9stats-graphite.py /usr/local/sbin/
+* Arrange for the program to be started up on system boot. A sample
+  [Systemd service file](systemd-service) and [Startup options file]
+  (sysconfig-options) is provided. The OPTIONS variable in the latter
+  specifies that command line options to start the program with, which
+  by default is set to: OPTIONS="-d -s 127.0.0.1 -r"
+
+Graphite is commonly the default backend for
+[Grafana](https://grafana.com/), a popular data visualization tool
+and dashboard. The included sample [Grafana dashboard configuration file](Grafana-BIND.json)
+produces output like the following:
 
 ![Grafana Screenshot 1](visual/grafana/bind9-grafana1.png)
 ![Grafana Screenshot 1](visual/grafana/bind9-grafana2.png)
