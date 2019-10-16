@@ -54,14 +54,21 @@ Instructions for using this:
   server allows queries remotely. Set the HOST and PORT environment
   variables appropriately in that case before invoking bind9stats.py.
 
+Sample munin graphs produced by this plugin:
+
+![Muning Graph 1](visual/munin/1opcodes.jpg)
+![Muning Graph 1](visual/munin/2queries-in.jpg)
 
 ## bind9stats-graphite.py
 
 This version of the program runs as a long lived daemon, collects
 statistics at regular intervals (default is every minute), and then
 sends them to a Graphite server. Graphite is commonly the default
-backend for Grafana, a fancy data visualization tool/dashboard.
+backend for Grafana, a fancy data visualization tool/dashboard. The included sample Grafana dashboard configuration file (Grafana-BIND.json) produces output like the following:
 
+![Grafana Screenshot 1](visual/grafana/bind9-grafana1.png)
+![Grafana Screenshot 1](visual/grafana/bind9-grafana2.png)
+![Grafana Screenshot 1](visual/grafana/bind9-grafana3.png)
 
 Author: Shumon Huque
 
